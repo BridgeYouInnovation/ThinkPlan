@@ -360,15 +360,21 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
                     size="sm"
                     onClick={handleVoiceInput}
                     disabled={isProcessing}
-                    className={`rounded-full p-3 transition-all duration-300 ${
+                    className={`rounded-full p-3 transition-all duration-300 transform relative ${
                       isRecording 
-                        ? 'bg-red-500 text-white shadow-lg scale-110 animate-pulse' 
+                        ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-2xl shadow-purple-500/50 scale-110 animate-pulse' 
                         : isProcessing 
-                        ? 'bg-blue-100 text-blue-600' 
-                        : 'hover:bg-purple-100 hover:text-purple-600 bg-gray-50'
+                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/30' 
+                        : 'hover:bg-gradient-to-r hover:from-purple-100 hover:to-blue-100 hover:text-purple-600 bg-gradient-to-r from-gray-50 to-gray-100 shadow-md hover:shadow-lg hover:shadow-purple-500/20'
                     }`}
                   >
-                    <Mic className="h-5 w-5" />
+                    {/* Glowing effect */}
+                    {(isRecording || isProcessing) && (
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-400 to-blue-400 animate-ping opacity-25"></div>
+                    )}
+                    <Mic className={`h-5 w-5 relative z-10 ${
+                      isRecording || isProcessing ? 'drop-shadow-sm' : ''
+                    }`} />
                   </Button>
                   <span className="text-xs text-gray-400">
                     {isRecording ? 'Recording...' : isProcessing ? 'Processing...' : 'or speak'}

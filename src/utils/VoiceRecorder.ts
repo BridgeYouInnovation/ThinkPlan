@@ -8,17 +8,31 @@ export class VoiceRecorder {
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          sampleRate: 44100,
+          sampleRate: 48000, // Higher sample rate for better quality
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          // Enhanced audio constraints for better quality
+          sampleSize: 16,
+          latency: 0.01
         } 
       });
       
-      this.mediaRecorder = new MediaRecorder(this.stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      // Use higher quality codec if available
+      const options: MediaRecorderOptions = {};
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        options.mimeType = 'audio/webm;codecs=opus';
+        options.audioBitsPerSecond = 128000; // Higher bitrate for better quality
+      } else if (MediaRecorder.isTypeSupported('audio/mp4;codecs=mp4a.40.2')) {
+        options.mimeType = 'audio/mp4;codecs=mp4a.40.2';
+        options.audioBitsPerSecond = 128000;
+      } else {
+        options.mimeType = 'audio/webm';
+        options.audioBitsPerSecond = 96000;
+      }
+      
+      this.mediaRecorder = new MediaRecorder(this.stream, options);
       
       this.audioChunks = [];
       
@@ -28,7 +42,7 @@ export class VoiceRecorder {
         }
       };
       
-      this.mediaRecorder.start(100); // Collect data every 100ms
+      this.mediaRecorder.start(100); // Collect data every 100ms for smooth recording
     } catch (error) {
       console.error('Error starting recording:', error);
       throw new Error('Could not access microphone');
@@ -43,7 +57,8 @@ export class VoiceRecorder {
       }
 
       this.mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+        const mimeType = this.mediaRecorder?.mimeType || 'audio/webm';
+        const audioBlob = new Blob(this.audioChunks, { type: mimeType });
         this.cleanup();
         resolve(audioBlob);
       };

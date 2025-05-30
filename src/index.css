@@ -173,6 +173,18 @@
   .animate-bounce-gentle {
     animation: bounceGentle 0.6s ease-out;
   }
+
+  .animation-delay-75 {
+    animation-delay: 75ms;
+  }
+
+  .animation-delay-300 {
+    animation-delay: 300ms;
+  }
+
+  .animation-delay-600 {
+    animation-delay: 600ms;
+  }
 }
 
 @keyframes fadeIn {
