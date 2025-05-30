@@ -1,12 +1,25 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { useState } from "react";
+import { Toaster } from "@/components/ui/toaster";
+import { AuthCard } from "@/components/auth/AuthCard";
+import { Dashboard } from "@/components/dashboard/Dashboard";
 
 const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <AuthCard onAuthSuccess={() => setIsAuthenticated(true)} />
+        <Toaster />
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Dashboard onLogout={() => setIsAuthenticated(false)} />
+      <Toaster />
     </div>
   );
 };
