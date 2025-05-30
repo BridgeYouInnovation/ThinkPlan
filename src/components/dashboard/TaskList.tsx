@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash, Edit, Plus, Calendar, Clock, Users } from "lucide-react";
+import { Trash, Edit, Plus, Calendar, Clock, Users, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -15,7 +15,17 @@ type Task = Tables<'tasks'>;
 export const TaskList = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
   const { toast } = useToast();
+
+  const today = new Date();
+  const weekDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const currentWeek = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - today.getDay() + i);
+    return date;
+  });
 
   useEffect(() => {
     fetchTasks();
@@ -42,6 +52,41 @@ export const TaskList = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const addTask = async () => {
+    if (!newTaskTitle.trim()) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('tasks')
+        .insert({
+          title: newTaskTitle.trim(),
+          user_id: user.id,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      setNewTaskTitle("");
+      setShowAddTask(false);
+      fetchTasks();
+      
+      toast({
+        title: "Task created!",
+        description: "Your new task has been added",
+      });
+    } catch (error) {
+      console.error('Error creating task:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create task",
+      });
     }
   };
 
@@ -132,18 +177,23 @@ export const TaskList = () => {
       case 'in_progress':
         return <Badge className="bg-blue-100 text-blue-700 border-blue-200">Running</Badge>;
       default:
-        return <Badge className="bg-orange-100 text-orange-700 border-orange-200">Urgent</Badge>;
+        return <Badge className="bg-orange-100 text-orange-700 border-orange-200">Pending</Badge>;
     }
   };
 
   const TaskItem = ({ task }: { task: Task }) => (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
       <div className="p-4">
         <div className="flex items-start justify-between mb-3">
           {getStatusBadge(task.status)}
-          <Button variant="ghost" size="sm" onClick={() => deleteTask(task.id)} className="text-gray-400 hover:text-red-500">
-            <Trash className="h-4 w-4" />
-          </Button>
+          <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-500 w-8 h-8 p-0">
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => deleteTask(task.id)} className="text-gray-400 hover:text-red-500 w-8 h-8 p-0">
+              <Trash className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         
         <div className="space-y-3">
@@ -169,7 +219,7 @@ export const TaskList = () => {
               )}
               <div className="flex items-center space-x-1">
                 <Users className="h-4 w-4" />
-                <span>2 Persons</span>
+                <span>Personal</span>
               </div>
             </div>
             
@@ -184,6 +234,47 @@ export const TaskList = () => {
     </div>
   );
 
+  const EmptyState = ({ category }: { category: string }) => {
+    if (category === "today") {
+      return (
+        <div className="text-center py-16">
+          <div className="relative w-24 h-24 mx-auto mb-6">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center">
+              <Sparkles className="h-12 w-12 text-purple-500 animate-pulse" />
+            </div>
+            <div className="absolute -top-2 -right-2 text-2xl animate-bounce">🎉</div>
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">You're all caught up!</h3>
+          <p className="text-gray-500 mb-6">No tasks for today. Time to create something amazing!</p>
+          <Button 
+            onClick={() => setShowAddTask(true)}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-2xl px-6 py-3"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Capture a new idea
+          </Button>
+        </div>
+      );
+    }
+
+    const emptyMessages = {
+      upcoming: { icon: Clock, title: "No upcoming tasks", subtitle: "You're all set for the future" },
+      completed: { icon: Calendar, title: "No completed tasks", subtitle: "Complete some tasks to see them here" }
+    };
+
+    const { icon: Icon, title, subtitle } = emptyMessages[category] || emptyMessages.upcoming;
+
+    return (
+      <div className="text-center py-12">
+        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Icon className="h-8 w-8 text-gray-400" />
+        </div>
+        <p className="text-gray-500 font-medium">{title}</p>
+        <p className="text-gray-400 text-sm">{subtitle}</p>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -191,7 +282,7 @@ export const TaskList = () => {
         <div className="bg-gradient-to-br from-purple-600 via-purple-700 to-blue-600 rounded-3xl p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm">May 01, 2020</p>
+              <p className="text-purple-100 text-sm">{today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
               <h1 className="text-2xl font-bold">Today</h1>
             </div>
             <Button className="bg-white/20 hover:bg-white/30 text-white border-0 rounded-2xl">
@@ -215,10 +306,13 @@ export const TaskList = () => {
       <div className="bg-gradient-to-br from-purple-600 via-purple-700 to-blue-600 rounded-3xl p-6 text-white shadow-xl">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <p className="text-purple-100 text-sm">May 01, 2020</p>
+            <p className="text-purple-100 text-sm">{today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
             <h1 className="text-2xl font-bold">Today</h1>
           </div>
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0 rounded-2xl shadow-lg">
+          <Button 
+            onClick={() => setShowAddTask(true)}
+            className="bg-orange-500 hover:bg-orange-600 text-white border-0 rounded-2xl shadow-lg"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Task
           </Button>
@@ -226,18 +320,56 @@ export const TaskList = () => {
         
         {/* Calendar Week */}
         <div className="grid grid-cols-7 gap-2 text-center">
-          {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((day, index) => (
-            <div key={day} className="text-center">
-              <p className="text-purple-200 text-xs mb-1">{day}</p>
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm ${
-                index === 4 ? 'bg-white text-purple-600 font-semibold' : 'text-white'
-              }`}>
-                {10 + index}
+          {currentWeek.map((date, index) => {
+            const isToday = date.toDateString() === today.toDateString();
+            return (
+              <div key={index} className="text-center">
+                <p className="text-purple-200 text-xs mb-1">{weekDays[date.getDay()]}</p>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all duration-300 ${
+                  isToday 
+                    ? 'bg-gradient-to-br from-white to-purple-50 text-purple-600 font-semibold shadow-lg ring-2 ring-white/30 animate-pulse' 
+                    : 'text-white hover:bg-white/20'
+                }`}>
+                  {date.getDate()}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
+
+      {/* Add Task Modal */}
+      {showAddTask && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm">
+            <h3 className="text-lg font-semibold mb-4">Add New Task</h3>
+            <input
+              type="text"
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              placeholder="What needs to be done?"
+              className="w-full border border-gray-200 rounded-2xl p-3 mb-4 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              autoFocus
+            />
+            <div className="flex space-x-3">
+              <Button
+                onClick={() => setShowAddTask(false)}
+                variant="outline"
+                className="flex-1 rounded-2xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={addTask}
+                disabled={!newTaskTitle.trim()}
+                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-2xl"
+              >
+                Add Task
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tasks Section */}
       <div className="space-y-4">
@@ -255,44 +387,32 @@ export const TaskList = () => {
           </TabsList>
 
           <TabsContent value="today" className="space-y-4">
-            {filterTasks("today").map(task => (
-              <TaskItem key={task.id} task={task} />
-            ))}
-            {filterTasks("today").length === 0 && (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Calendar className="h-8 w-8 text-gray-400" />
-                </div>
-                <p className="text-gray-500">No tasks for today</p>
-              </div>
+            {filterTasks("today").length > 0 ? (
+              filterTasks("today").map(task => (
+                <TaskItem key={task.id} task={task} />
+              ))
+            ) : (
+              <EmptyState category="today" />
             )}
           </TabsContent>
 
           <TabsContent value="upcoming" className="space-y-4">
-            {filterTasks("upcoming").map(task => (
-              <TaskItem key={task.id} task={task} />
-            ))}
-            {filterTasks("upcoming").length === 0 && (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Clock className="h-8 w-8 text-gray-400" />
-                </div>
-                <p className="text-gray-500">No upcoming tasks</p>
-              </div>
+            {filterTasks("upcoming").length > 0 ? (
+              filterTasks("upcoming").map(task => (
+                <TaskItem key={task.id} task={task} />
+              ))
+            ) : (
+              <EmptyState category="upcoming" />
             )}
           </TabsContent>
 
           <TabsContent value="completed" className="space-y-4">
-            {filterTasks("completed").map(task => (
-              <TaskItem key={task.id} task={task} />
-            ))}
-            {filterTasks("completed").length === 0 && (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Checkbox className="h-8 w-8 text-gray-400" />
-                </div>
-                <p className="text-gray-500">No completed tasks</p>
-              </div>
+            {filterTasks("completed").length > 0 ? (
+              filterTasks("completed").map(task => (
+                <TaskItem key={task.id} task={task} />
+              ))
+            ) : (
+              <EmptyState category="completed" />
             )}
           </TabsContent>
         </Tabs>
