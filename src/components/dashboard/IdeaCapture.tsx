@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Mic, Lightbulb, Sparkles, Zap, ArrowRight } from "lucide-react";
+import { Mic, Lightbulb, Sparkles, Zap, ArrowRight, ChevronLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const IdeaCapture = () => {
@@ -20,7 +20,6 @@ export const IdeaCapture = () => {
     setIsLoading(true);
     
     try {
-      // First, save the idea to the database
       const { data: ideaData, error: ideaError } = await supabase
         .from('ideas')
         .insert({
@@ -34,19 +33,18 @@ export const IdeaCapture = () => {
         throw ideaError;
       }
 
-      // For now, create some mock tasks (in the future, this will call your AI API)
       const mockTasks = [
         {
           title: `Research phase for: ${idea.substring(0, 30)}...`,
           description: "Initial research and planning",
-          due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
+          due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
           idea_id: ideaData.id,
           user_id: (await supabase.auth.getUser()).data.user?.id
         },
         {
           title: `First action step for: ${idea.substring(0, 30)}...`,
           description: "Begin implementation",
-          due_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days
+          due_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
           idea_id: ideaData.id,
           user_id: (await supabase.auth.getUser()).data.user?.id
         }
@@ -60,7 +58,6 @@ export const IdeaCapture = () => {
         throw tasksError;
       }
 
-      // Show success animation
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 2000);
       
@@ -83,7 +80,6 @@ export const IdeaCapture = () => {
 
   const startVoiceInput = () => {
     setIsRecording(true);
-    // Placeholder for voice recording implementation
     toast({
       title: "🎤 Voice input",
       description: "Voice recording will be implemented with OpenAI integration.",
@@ -92,118 +88,130 @@ export const IdeaCapture = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      {/* Hero section */}
-      <div className="text-center space-y-4 animate-fade-in">
-        <div className="flex items-center justify-center space-x-3 mb-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
-            <Lightbulb className="w-6 h-6 text-white" />
+    <div className="space-y-6 max-w-md mx-auto">
+      {/* Header */}
+      <div className="bg-gradient-to-br from-purple-600 via-purple-700 to-blue-600 rounded-3xl p-6 text-white shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 rounded-full w-10 h-10 p-0">
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-xl font-bold">Add Task</h1>
+          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center">
+              <span className="text-white text-sm font-medium">U</span>
+            </div>
           </div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-            Capture Your Brilliant Ideas
-          </h2>
         </div>
-        <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-          Share your thoughts and watch as AI transforms them into structured, actionable plans
-        </p>
       </div>
 
-      {/* Main capture card */}
-      <Card className="card-hover border-0 shadow-xl bg-white/80 backdrop-blur-sm animate-slide-up">
-        <CardHeader className="text-center pb-6">
-          <CardTitle className="flex items-center justify-center space-x-2 text-xl text-gray-800">
-            <Sparkles className="w-5 h-5 text-purple-600" />
-            <span>What's on your mind?</span>
-          </CardTitle>
-        </CardHeader>
-        
-        <CardContent className="space-y-6">
-          <div className="relative">
-            <Textarea
-              placeholder="I want to learn Spanish and practice speaking with natives..."
-              value={idea}
-              onChange={(e) => setIdea(e.target.value)}
-              rows={6}
-              className="resize-none text-lg leading-relaxed border-2 border-gray-200 focus:border-purple-400 focus:ring-purple-200 rounded-2xl p-6 transition-all duration-300"
+      {/* Main capture form */}
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-6 space-y-6">
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="Your Task Name"
+              className="w-full text-lg placeholder-gray-400 border-0 border-b border-gray-200 focus:border-purple-500 focus:outline-none py-3 bg-transparent"
             />
-            {idea.length > 0 && (
-              <div className="absolute bottom-3 right-3 text-sm text-gray-400">
-                {idea.length} characters
-              </div>
-            )}
-          </div>
-          
-          <div className="flex gap-4">
-            <Button
-              onClick={handleSubmit}
-              disabled={!idea.trim() || isLoading}
-              className="flex-1 h-14 text-lg font-medium bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 rounded-2xl"
-            >
-              {isLoading ? (
-                <div className="flex items-center space-x-3">
-                  <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
-                  <span>AI is thinking...</span>
-                </div>
-              ) : showSuccess ? (
-                <div className="flex items-center space-x-2 animate-bounce-gentle">
-                  <Sparkles className="w-5 h-5" />
-                  <span>Created!</span>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <Zap className="w-5 h-5" />
-                  <span>Transform into Tasks</span>
-                  <ArrowRight className="w-4 h-4" />
-                </div>
-              )}
-            </Button>
             
-            <Button
-              variant="outline"
-              onClick={startVoiceInput}
-              disabled={isRecording}
-              className="h-14 px-6 border-2 border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all duration-300 rounded-2xl"
-            >
-              <Mic className={`w-5 h-5 ${isRecording ? 'text-red-500 animate-pulse-gentle' : 'text-gray-600'}`} />
-            </Button>
-          </div>
-          
-          {isRecording && (
-            <div className="text-center animate-fade-in">
-              <div className="inline-flex items-center space-x-2 bg-red-50 text-red-600 px-4 py-2 rounded-full">
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse-gentle"></div>
-                <span className="font-medium">Listening... (Demo mode)</span>
+            <div className="space-y-3">
+              <label className="text-sm text-gray-500 font-medium">RECENT MEET</label>
+              <div className="flex items-center space-x-3">
+                {/* Avatar placeholders */}
+                {['John', 'Ranak', 'Parkaa', 'Mahmud'].map((name, index) => (
+                  <div key={name} className="flex flex-col items-center space-y-1">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-medium ${
+                      index === 0 ? 'bg-pink-400' : 
+                      index === 1 ? 'bg-red-400' : 
+                      index === 2 ? 'bg-purple-500' : 'bg-teal-400'
+                    }`}>
+                      {name[0]}
+                    </div>
+                    <span className="text-xs text-gray-500">{name}</span>
+                  </div>
+                ))}
+                <div className="w-12 h-12 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-gray-400" />
+                </div>
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            
+            <div className="space-y-3">
+              <label className="text-sm text-gray-500 font-medium">DATE</label>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-900">May 01, 2020</span>
+                <Calendar className="w-5 h-5 text-gray-400" />
+              </div>
+            </div>
 
-      {/* Example ideas */}
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-0 shadow-lg animate-fade-in">
-        <CardContent className="p-6">
-          <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
-            <Lightbulb className="w-4 h-4 mr-2 text-yellow-500" />
-            Need inspiration? Try these ideas:
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {[
-              "Plan a weekend trip to Paris with my partner",
-              "Start a side business selling handmade crafts",
-              "Learn to play guitar and perform at open mic nights",
-              "Organize a community garden in my neighborhood"
-            ].map((example, index) => (
-              <button
-                key={index}
-                onClick={() => setIdea(example)}
-                className="text-left p-3 bg-white/60 rounded-xl hover:bg-white hover:shadow-md transition-all duration-200 text-sm text-gray-700 hover:text-gray-900"
-              >
-                "{example}"
-              </button>
-            ))}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm text-gray-500 font-medium">START TIME</label>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-900">10:00 AM</span>
+                  <ChevronLeft className="w-4 h-4 text-gray-400 rotate-90" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-gray-500 font-medium">END TIME</label>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-900">01:00 PM</span>
+                  <ChevronLeft className="w-4 h-4 text-gray-400 rotate-90" />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-sm text-gray-500 font-medium">DESCRIPTION</label>
+              <Textarea
+                placeholder="Describe your idea or task..."
+                value={idea}
+                onChange={(e) => setIdea(e.target.value)}
+                rows={4}
+                className="resize-none border-0 bg-gray-50 rounded-2xl p-4 focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all duration-200"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-sm text-gray-500 font-medium">BOARD</label>
+              <div className="flex space-x-2">
+                <Button size="sm" className="bg-orange-100 text-orange-600 hover:bg-orange-200 border-0 rounded-full">
+                  URGENT
+                </Button>
+                <Button size="sm" className="bg-green-100 text-green-600 hover:bg-green-200 border-0 rounded-full">
+                  RUNNING
+                </Button>
+                <Button size="sm" className="bg-purple-100 text-purple-600 hover:bg-purple-200 border-0 rounded-full">
+                  ONGOING
+                </Button>
+                <Button variant="outline" size="sm" className="border-dashed border-gray-300 rounded-full">
+                  <Sparkles className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+          
+          <Button
+            onClick={handleSubmit}
+            disabled={!idea.trim() || isLoading}
+            className="w-full h-14 text-lg font-medium bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 rounded-2xl shadow-lg"
+          >
+            {isLoading ? (
+              <div className="flex items-center space-x-3">
+                <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
+                <span>Creating Task...</span>
+              </div>
+            ) : showSuccess ? (
+              <div className="flex items-center space-x-2">
+                <Sparkles className="w-5 h-5" />
+                <span>Created!</span>
+              </div>
+            ) : (
+              "Create New Task"
+            )}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };

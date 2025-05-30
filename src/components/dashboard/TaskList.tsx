@@ -3,8 +3,9 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash, Edit } from "lucide-react";
+import { Trash, Edit, Plus, Calendar, Clock, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -112,7 +113,7 @@ export const TaskList = () => {
     if (task.due_date) {
       const dueDate = new Date(task.due_date);
       const today = new Date();
-      today.setHours(23, 59, 59, 999); // End of today
+      today.setHours(23, 59, 59, 999);
       
       if (dueDate <= today) return 'today';
     }
@@ -124,99 +125,178 @@ export const TaskList = () => {
     return tasks.filter(task => getTaskCategory(task) === category);
   };
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge className="bg-green-100 text-green-700 border-green-200">Completed</Badge>;
+      case 'in_progress':
+        return <Badge className="bg-blue-100 text-blue-700 border-blue-200">Running</Badge>;
+      default:
+        return <Badge className="bg-orange-100 text-orange-700 border-orange-200">Urgent</Badge>;
+    }
+  };
+
   const TaskItem = ({ task }: { task: Task }) => (
-    <div className="flex items-center space-x-3 p-3 border rounded-lg">
-      <Checkbox
-        checked={task.status === "completed"}
-        onCheckedChange={() => toggleTask(task.id, task.status)}
-      />
-      <div className="flex-1">
-        <p className={`${task.status === "completed" ? "line-through text-gray-500" : ""}`}>
-          {task.title}
-        </p>
-        {task.description && (
-          <p className="text-sm text-gray-600">{task.description}</p>
-        )}
-        {task.due_date && (
-          <p className="text-sm text-gray-600">
-            Due: {new Date(task.due_date).toLocaleDateString()}
-          </p>
-        )}
-      </div>
-      <div className="flex gap-2">
-        <Button variant="ghost" size="sm">
-          <Edit className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => deleteTask(task.id)}>
-          <Trash className="h-4 w-4" />
-        </Button>
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
+      <div className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          {getStatusBadge(task.status)}
+          <Button variant="ghost" size="sm" onClick={() => deleteTask(task.id)} className="text-gray-400 hover:text-red-500">
+            <Trash className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        <div className="space-y-3">
+          <div className="flex items-start space-x-3">
+            <div className="w-1 h-16 bg-gradient-to-b from-purple-500 to-blue-500 rounded-full flex-shrink-0 mt-1"></div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-gray-900 text-lg leading-tight">
+                {task.title}
+              </h3>
+              {task.description && (
+                <p className="text-gray-500 text-sm mt-1">{task.description}</p>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+            <div className="flex items-center space-x-4 text-sm text-gray-500">
+              {task.due_date && (
+                <div className="flex items-center space-x-1">
+                  <Clock className="h-4 w-4" />
+                  <span>{new Date(task.due_date).toLocaleDateString()}</span>
+                </div>
+              )}
+              <div className="flex items-center space-x-1">
+                <Users className="h-4 w-4" />
+                <span>2 Persons</span>
+              </div>
+            </div>
+            
+            <Checkbox
+              checked={task.status === "completed"}
+              onCheckedChange={() => toggleTask(task.id, task.status)}
+              className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Tasks</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-2 text-gray-600">Loading tasks...</p>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="bg-gradient-to-br from-purple-600 via-purple-700 to-blue-600 rounded-3xl p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-purple-100 text-sm">May 01, 2020</p>
+              <h1 className="text-2xl font-bold">Today</h1>
+            </div>
+            <Button className="bg-white/20 hover:bg-white/30 text-white border-0 rounded-2xl">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Task
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading tasks...</p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Your Tasks</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div className="space-y-6 max-w-md mx-auto">
+      {/* Header */}
+      <div className="bg-gradient-to-br from-purple-600 via-purple-700 to-blue-600 rounded-3xl p-6 text-white shadow-xl">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p className="text-purple-100 text-sm">May 01, 2020</p>
+            <h1 className="text-2xl font-bold">Today</h1>
+          </div>
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0 rounded-2xl shadow-lg">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Task
+          </Button>
+        </div>
+        
+        {/* Calendar Week */}
+        <div className="grid grid-cols-7 gap-2 text-center">
+          {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((day, index) => (
+            <div key={day} className="text-center">
+              <p className="text-purple-200 text-xs mb-1">{day}</p>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm ${
+                index === 4 ? 'bg-white text-purple-600 font-semibold' : 'text-white'
+              }`}>
+                {10 + index}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tasks Section */}
+      <div className="space-y-4">
         <Tabs defaultValue="today" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="today">
+          <TabsList className="grid w-full grid-cols-3 bg-gray-100 rounded-2xl">
+            <TabsTrigger value="today" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm">
               Today ({filterTasks("today").length})
             </TabsTrigger>
-            <TabsTrigger value="upcoming">
+            <TabsTrigger value="upcoming" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm">
               Upcoming ({filterTasks("upcoming").length})
             </TabsTrigger>
-            <TabsTrigger value="completed">
-              Completed ({filterTasks("completed").length})
+            <TabsTrigger value="completed" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              Done ({filterTasks("completed").length})
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="today" className="space-y-3">
+          <TabsContent value="today" className="space-y-4">
             {filterTasks("today").map(task => (
               <TaskItem key={task.id} task={task} />
             ))}
             {filterTasks("today").length === 0 && (
-              <p className="text-gray-500 text-center py-8">No tasks for today</p>
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Calendar className="h-8 w-8 text-gray-400" />
+                </div>
+                <p className="text-gray-500">No tasks for today</p>
+              </div>
             )}
           </TabsContent>
 
-          <TabsContent value="upcoming" className="space-y-3">
+          <TabsContent value="upcoming" className="space-y-4">
             {filterTasks("upcoming").map(task => (
               <TaskItem key={task.id} task={task} />
             ))}
             {filterTasks("upcoming").length === 0 && (
-              <p className="text-gray-500 text-center py-8">No upcoming tasks</p>
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Clock className="h-8 w-8 text-gray-400" />
+                </div>
+                <p className="text-gray-500">No upcoming tasks</p>
+              </div>
             )}
           </TabsContent>
 
-          <TabsContent value="completed" className="space-y-3">
+          <TabsContent value="completed" className="space-y-4">
             {filterTasks("completed").map(task => (
               <TaskItem key={task.id} task={task} />
             ))}
             {filterTasks("completed").length === 0 && (
-              <p className="text-gray-500 text-center py-8">No completed tasks</p>
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Checkbox className="h-8 w-8 text-gray-400" />
+                </div>
+                <p className="text-gray-500">No completed tasks</p>
+              </div>
             )}
           </TabsContent>
         </Tabs>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };

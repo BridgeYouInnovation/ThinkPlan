@@ -1,66 +1,59 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Clock, Mail, TrendingUp, Target, Zap, ArrowRight, Plus } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
-
-type Task = Tables<'tasks'>;
-type Message = Tables<'messages'>;
+import { CheckSquare, MessageCircle, Lightbulb, TrendingUp, Calendar, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export const DailyFeed = () => {
-  const [todaysTasks, setTodaysTasks] = useState<Task[]>([]);
-  const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
-  const [flaggedMessages, setFlaggedMessages] = useState<Message[]>([]);
+  const [stats, setStats] = useState({
+    totalTasks: 55,
+    completedTasks: 13,
+    workingOnTasks: 25,
+    pendingTasks: 17,
+    flaggedMessages: 0,
+    totalIdeas: 0
+  });
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchStats();
   }, []);
 
-  const fetchDashboardData = async () => {
+  const fetchStats = async () => {
     try {
-      // Fetch tasks
-      const { data: tasks, error: tasksError } = await supabase
-        .from('tasks')
-        .select('*')
-        .neq('status', 'completed')
-        .order('due_date', { ascending: true });
+      const [tasksResult, messagesResult, ideasResult] = await Promise.all([
+        supabase.from('tasks').select('status'),
+        supabase.from('messages').select('is_flagged'),
+        supabase.from('ideas').select('id')
+      ]);
 
-      if (tasksError) throw tasksError;
+      if (tasksResult.error || messagesResult.error || ideasResult.error) {
+        throw new Error('Failed to fetch stats');
+      }
 
-      // Categorize tasks
-      const today = new Date();
-      today.setHours(23, 59, 59, 999);
-      
-      const todayTasks = (tasks || []).filter(task => {
-        if (!task.due_date) return false;
-        return new Date(task.due_date) <= today;
+      const tasks = tasksResult.data || [];
+      const messages = messagesResult.data || [];
+      const ideas = ideasResult.data || [];
+
+      setStats({
+        totalTasks: tasks.length,
+        completedTasks: tasks.filter(t => t.status === 'completed').length,
+        workingOnTasks: tasks.filter(t => t.status === 'in_progress').length,
+        pendingTasks: tasks.filter(t => t.status === 'pending').length,
+        flaggedMessages: messages.filter(m => m.is_flagged).length,
+        totalIdeas: ideas.length
       });
-
-      const upcomingTasksFiltered = (tasks || []).filter(task => {
-        if (!task.due_date) return true; // Tasks without due date go to upcoming
-        return new Date(task.due_date) > today;
-      });
-
-      setTodaysTasks(todayTasks);
-      setUpcomingTasks(upcomingTasksFiltered);
-
-      // Fetch flagged messages
-      const { data: messages, error: messagesError } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('is_flagged', true)
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (messagesError) throw messagesError;
-      
-      setFlaggedMessages(messages || []);
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      console.error('Error fetching stats:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load dashboard stats",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -68,207 +61,138 @@ export const DailyFeed = () => {
 
   if (isLoading) {
     return (
-      <div className="space-y-8 animate-fade-in">
-        <div className="text-center py-12">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
-            <div className="w-8 h-8 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
-          </div>
-          <p className="text-xl font-medium text-gray-700">Loading your daily insights...</p>
-          <p className="text-gray-500 mt-2">Preparing your personalized workspace</p>
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="bg-gray-200 rounded-3xl h-32 mb-4"></div>
+          <div className="bg-gray-200 rounded-2xl h-24 mb-4"></div>
+          <div className="bg-gray-200 rounded-2xl h-24"></div>
         </div>
       </div>
     );
   }
 
+  const StatCard = ({ icon: Icon, label, value, color }: { icon: any, label: string, value: number, color: string }) => (
+    <div className="flex items-center space-x-3 p-3">
+      <div className={`w-10 h-10 rounded-2xl ${color} flex items-center justify-center`}>
+        <Icon className="w-5 h-5 text-white" />
+      </div>
+      <div className="flex-1">
+        <p className="text-gray-900 font-semibold">{label}</p>
+        <p className="text-gray-500 text-sm">{value}</p>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
-      {/* Welcome header */}
-      <div className="text-center space-y-4 animate-fade-in">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-          Good morning! Ready to make progress?
-        </h2>
-        <p className="text-gray-600 text-lg">Here's your productivity overview for today</p>
+    <div className="space-y-6 max-w-md mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-500 text-sm">Track your productivity</p>
+        </div>
+        <Button variant="ghost" size="sm" className="text-gray-600">
+          <Grid3X3 className="h-5 w-5" />
+        </Button>
       </div>
 
-      {/* Stats overview */}
-      <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-4 animate-slide-up">
-        <Card className="card-hover bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 shadow-xl">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-3xl font-bold">{todaysTasks.length}</p>
-                <p className="text-green-100 font-medium">Due Today</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-                <Target className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-hover bg-gradient-to-r from-blue-500 to-cyan-600 text-white border-0 shadow-xl">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-3xl font-bold">{upcomingTasks.length}</p>
-                <p className="text-blue-100 font-medium">Upcoming</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-                <Clock className="w-6 h-6" />
+      {/* Progress Chart */}
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+        <div className="relative w-32 h-32 mx-auto mb-6">
+          {/* Donut Chart */}
+          <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 36 36">
+            <path
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              fill="none"
+              stroke="#f3f4f6"
+              strokeWidth="3"
+            />
+            <path
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              fill="none"
+              stroke="#10b981"
+              strokeWidth="3"
+              strokeDasharray={`${(stats.completedTasks / stats.totalTasks) * 100}, 100`}
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-900">
+                {Math.round((stats.completedTasks / stats.totalTasks) * 100)}%
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-hover bg-gradient-to-r from-purple-500 to-pink-600 text-white border-0 shadow-xl">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-3xl font-bold">{flaggedMessages.length}</p>
-                <p className="text-purple-100 font-medium">Need Reply</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-                <Mail className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-hover bg-gradient-to-r from-orange-500 to-red-600 text-white border-0 shadow-xl">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-3xl font-bold">94%</p>
-                <p className="text-orange-100 font-medium">Productivity</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-                <TrendingUp className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+            <span className="text-sm text-gray-600">15%</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+            <span className="text-sm text-gray-600">13%</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+            <span className="text-sm text-gray-600">28%</span>
+          </div>
+        </div>
       </div>
 
-      {/* Main content grid */}
-      <div className="grid gap-8 lg:grid-cols-2">
-        {/* Today's Focus */}
-        <Card className="card-hover border-0 shadow-xl bg-white/80 backdrop-blur-sm animate-slide-up">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center space-x-3 text-xl">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center">
-                <CheckCircle className="w-4 h-4 text-white" />
-              </div>
-              <span>Today's Focus</span>
-              <Badge variant="secondary" className="ml-auto">{todaysTasks.length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {todaysTasks.length > 0 ? (
-              <>
-                {todaysTasks.slice(0, 4).map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-all duration-200 group">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center">
-                        <CheckCircle className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-800 group-hover:text-green-600 transition-colors">{task.title}</p>
-                        <p className="text-sm text-gray-500">Due today</p>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-green-500 transition-colors" />
-                  </div>
-                ))}
-                <Button variant="outline" className="w-full mt-4 h-12 rounded-2xl border-2 hover:border-green-300 hover:bg-green-50 transition-all duration-200">
-                  <Plus className="w-4 h-4 mr-2" />
-                  View All Tasks
-                </Button>
-              </>
-            ) : (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center">
-                  <CheckCircle className="w-8 h-8 text-white" />
-                </div>
-                <p className="text-lg font-medium text-gray-800 mb-2">All caught up! 🎉</p>
-                <p className="text-gray-500">No tasks due today. Great job!</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Message Intelligence */}
-        <Card className="card-hover border-0 shadow-xl bg-white/80 backdrop-blur-sm animate-slide-up">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center space-x-3 text-xl">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-r from-purple-500 to-pink-600 flex items-center justify-center">
-                <Mail className="w-4 h-4 text-white" />
-              </div>
-              <span>Message Follow-ups</span>
-              <Badge variant="secondary" className="ml-auto">{flaggedMessages.length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {flaggedMessages.length > 0 ? (
-              <>
-                {flaggedMessages.slice(0, 4).map((message) => (
-                  <div key={message.id} className="flex items-center justify-between p-4 bg-purple-50 rounded-2xl hover:bg-purple-100 transition-all duration-200 group">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-purple-500 to-pink-600 flex items-center justify-center">
-                        <Mail className="w-5 h-5 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-800 group-hover:text-purple-600 transition-colors truncate">
-                          {message.content.substring(0, 40)}...
-                        </p>
-                        <p className="text-sm text-purple-600">AI reply ready</p>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-purple-500 transition-colors" />
-                  </div>
-                ))}
-                <Button variant="outline" className="w-full mt-4 h-12 rounded-2xl border-2 hover:border-purple-300 hover:bg-purple-50 transition-all duration-200">
-                  <Plus className="w-4 h-4 mr-2" />
-                  View All Messages
-                </Button>
-              </>
-            ) : (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-600 flex items-center justify-center">
-                  <Mail className="w-8 h-8 text-white" />
-                </div>
-                <p className="text-lg font-medium text-gray-800 mb-2">Inbox zero! 📬</p>
-                <p className="text-gray-500">No pending messages to review</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Stats Cards */}
+      <div className="space-y-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <StatCard 
+            icon={CheckSquare} 
+            label="Total task" 
+            value={stats.totalTasks} 
+            color="bg-purple-500" 
+          />
+        </div>
+        
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <StatCard 
+            icon={CheckSquare} 
+            label="Completed" 
+            value={stats.completedTasks} 
+            color="bg-green-500" 
+          />
+        </div>
+        
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <StatCard 
+            icon={TrendingUp} 
+            label="Working on" 
+            value={stats.workingOnTasks} 
+            color="bg-blue-500" 
+          />
+        </div>
+        
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <StatCard 
+            icon={Calendar} 
+            label="Pending" 
+            value={stats.pendingTasks} 
+            color="bg-orange-500" 
+          />
+        </div>
       </div>
 
       {/* Quick Actions */}
-      <Card className="border-0 shadow-xl bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 animate-fade-in">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2 text-xl">
-            <Zap className="w-6 h-6 text-purple-600" />
-            <span>Quick Actions</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Button variant="outline" className="h-20 flex-col space-y-2 bg-white/60 hover:bg-white hover:shadow-lg transition-all duration-300 rounded-2xl border-2 hover:border-purple-300 group">
-              <div className="text-2xl group-hover:animate-bounce-gentle">💡</div>
-              <span className="font-medium">Capture New Idea</span>
-            </Button>
-            <Button variant="outline" className="h-20 flex-col space-y-2 bg-white/60 hover:bg-white hover:shadow-lg transition-all duration-300 rounded-2xl border-2 hover:border-blue-300 group">
-              <div className="text-2xl group-hover:animate-bounce-gentle">📧</div>
-              <span className="font-medium">Analyze Message</span>
-            </Button>
-            <Button variant="outline" className="h-20 flex-col space-y-2 bg-white/60 hover:bg-white hover:shadow-lg transition-all duration-300 rounded-2xl border-2 hover:border-green-300 group">
-              <div className="text-2xl group-hover:animate-bounce-gentle">✅</div>
-              <span className="font-medium">Complete Task</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="bg-gradient-to-br from-purple-600 via-purple-700 to-blue-600 rounded-3xl p-6 text-white">
+        <h3 className="font-semibold mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <Button className="bg-white/20 hover:bg-white/30 text-white border-0 rounded-2xl h-12 justify-start">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Task
+          </Button>
+          <Button className="bg-white/20 hover:bg-white/30 text-white border-0 rounded-2xl h-12 justify-start">
+            <Lightbulb className="h-4 w-4 mr-2" />
+            New Idea
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };
