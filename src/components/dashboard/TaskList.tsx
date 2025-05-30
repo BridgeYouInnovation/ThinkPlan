@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
+import { EditTaskModal } from "./EditTaskModal";
 
 type Task = Tables<'tasks'>;
 
@@ -20,6 +20,7 @@ export const TaskList = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [showFirstTimeHint, setShowFirstTimeHint] = useState(false);
@@ -166,6 +167,13 @@ export const TaskList = () => {
     }
   };
 
+  const handleTaskUpdate = (updatedTask: Task) => {
+    setTasks(tasks.map(task => 
+      task.id === updatedTask.id ? updatedTask : task
+    ));
+    setEditingTask(null);
+  };
+
   const getTaskCategory = (task: Task) => {
     if (task.status === 'completed') return 'completed';
     
@@ -201,7 +209,12 @@ export const TaskList = () => {
         <div className="flex items-start justify-between mb-3">
           {getStatusBadge(task.status)}
           <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-blue-500 w-8 h-8 p-0">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setEditingTask(task)}
+              className="text-gray-400 hover:text-blue-500 w-8 h-8 p-0"
+            >
               <Edit className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="sm" onClick={() => deleteTask(task.id)} className="text-gray-400 hover:text-red-500 w-8 h-8 p-0">
@@ -443,6 +456,16 @@ export const TaskList = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Task Modal */}
+      {editingTask && (
+        <EditTaskModal
+          task={editingTask}
+          isOpen={!!editingTask}
+          onClose={() => setEditingTask(null)}
+          onUpdate={handleTaskUpdate}
+        />
       )}
 
       {/* Tasks Section */}
