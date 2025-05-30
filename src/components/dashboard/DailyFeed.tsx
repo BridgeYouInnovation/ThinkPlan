@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckSquare, MessageCircle, Lightbulb, TrendingUp, Calendar, Plus } from "lucide-react";
+import { CheckSquare, MessageCircle, Lightbulb, TrendingUp, Calendar, Plus, Grid3X3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const DailyFeed = () => {

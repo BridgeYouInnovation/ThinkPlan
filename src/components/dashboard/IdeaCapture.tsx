@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Mic, Lightbulb, Sparkles, Zap, ArrowRight, ChevronLeft } from "lucide-react";
+import { Mic, Lightbulb, Sparkles, Zap, ArrowRight, ChevronLeft, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const IdeaCapture = () => {
