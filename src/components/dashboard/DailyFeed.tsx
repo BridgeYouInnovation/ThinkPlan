@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -291,10 +290,10 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={() => onNavigateToTab && onNavigateToTab('messages')}
+            onClick={() => onNavigateToTab && onNavigateToTab('account')}
             className="text-purple-600 hover:text-purple-700 text-sm"
           >
-            View All <ArrowRight className="h-3 w-3 ml-1" />
+            Manage <ArrowRight className="h-3 w-3 ml-1" />
           </Button>
         </div>
         
@@ -342,12 +341,6 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
                 className="bg-white shadow-lg border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full w-12 h-12 p-0"
               >
                 Add Task
-              </Button>
-              <Button 
-                onClick={() => onNavigateToTab && onNavigateToTab('messages')}
-                className="bg-white shadow-lg border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full w-12 h-12 p-0"
-              >
-                Paste Message
               </Button>
             </div>
           )}

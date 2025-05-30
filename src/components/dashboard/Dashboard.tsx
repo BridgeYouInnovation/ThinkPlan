@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IdeaCapture } from "./IdeaCapture";
 import { TaskList } from "./TaskList";
-import { MessageIntelligence } from "./MessageIntelligence";
 import { DailyFeed } from "./DailyFeed";
-import { Sparkles, LogOut, Home, Lightbulb, CheckSquare, MessageCircle, User, Grid3X3 } from "lucide-react";
+import { AccountSettings } from "./AccountSettings";
+import { Sparkles, LogOut, Home, Lightbulb, CheckSquare, User, Grid3X3 } from "lucide-react";
 
 interface DashboardProps {
   onLogout: () => void;
@@ -20,7 +20,7 @@ export const Dashboard = ({ onLogout }: DashboardProps) => {
     { id: "daily", label: "Dashboard", icon: Grid3X3 },
     { id: "tasks", label: "Task", icon: CheckSquare },
     { id: "capture", label: "Capture", icon: Lightbulb },
-    { id: "messages", label: "Messages", icon: MessageCircle },
+    { id: "account", label: "Account", icon: User },
   ];
 
   const handleNavigateToTab = (tabId: string) => {
@@ -45,8 +45,8 @@ export const Dashboard = ({ onLogout }: DashboardProps) => {
               <IdeaCapture />
             </TabsContent>
 
-            <TabsContent value="messages" className="space-y-6 mt-0">
-              <MessageIntelligence />
+            <TabsContent value="account" className="space-y-6 mt-0">
+              <AccountSettings onLogout={onLogout} />
             </TabsContent>
           </div>
 
