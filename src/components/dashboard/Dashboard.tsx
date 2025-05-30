@@ -25,27 +25,12 @@ export const Dashboard = ({ onLogout }: DashboardProps) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-3">
-        <div className="container mx-auto max-w-md flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-gray-900">TaskFlow</h1>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={onLogout}
-            className="hover:bg-gray-100 text-gray-700 rounded-full w-10 h-10 p-0"
-          >
-            <LogOut className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
       <div className="container mx-auto px-4 py-6 max-w-md">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {/* Tab content */}
           <div className="animate-fade-in">
             <TabsContent value="daily" className="space-y-6 mt-0">
-              <DailyFeed />
+              <DailyFeed onLogout={onLogout} />
             </TabsContent>
 
             <TabsContent value="tasks" className="space-y-6 mt-0">

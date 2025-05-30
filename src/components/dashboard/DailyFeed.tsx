@@ -1,13 +1,16 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckSquare, MessageCircle, Lightbulb, TrendingUp, Calendar, Plus, Grid3X3 } from "lucide-react";
+import { CheckSquare, MessageCircle, Lightbulb, TrendingUp, Calendar, Plus, Grid3X3, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export const DailyFeed = () => {
+interface DailyFeedProps {
+  onLogout: () => void;
+}
+
+export const DailyFeed = ({ onLogout }: DailyFeedProps) => {
   const [stats, setStats] = useState({
     totalTasks: 55,
     completedTasks: 13,
@@ -91,8 +94,13 @@ export const DailyFeed = () => {
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-500 text-sm">Track your productivity</p>
         </div>
-        <Button variant="ghost" size="sm" className="text-gray-600">
-          <Grid3X3 className="h-5 w-5" />
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={onLogout}
+          className="text-gray-600 hover:bg-gray-100 rounded-full w-10 h-10 p-0"
+        >
+          <LogOut className="h-4 w-4" />
         </Button>
       </div>
 
