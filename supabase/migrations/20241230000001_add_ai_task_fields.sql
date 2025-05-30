@@ -1,4 +1,5 @@
 
+
 -- Add new columns to support AI-generated task features
 ALTER TABLE tasks 
 ADD COLUMN IF NOT EXISTS priority text DEFAULT 'medium',
@@ -14,3 +15,4 @@ ADD COLUMN IF NOT EXISTS ai_response jsonb;
 -- Create index for better performance
 CREATE INDEX IF NOT EXISTS idx_tasks_idea_id ON tasks(idea_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
+
