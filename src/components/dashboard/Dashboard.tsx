@@ -23,6 +23,10 @@ export const Dashboard = ({ onLogout }: DashboardProps) => {
     { id: "messages", label: "Messages", icon: MessageCircle },
   ];
 
+  const handleNavigateToTab = (tabId: string) => {
+    setActiveTab(tabId);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-6 max-w-md">
@@ -30,7 +34,7 @@ export const Dashboard = ({ onLogout }: DashboardProps) => {
           {/* Tab content */}
           <div className="animate-fade-in">
             <TabsContent value="daily" className="space-y-6 mt-0">
-              <DailyFeed onLogout={onLogout} />
+              <DailyFeed onLogout={onLogout} onNavigateToTab={handleNavigateToTab} />
             </TabsContent>
 
             <TabsContent value="tasks" className="space-y-6 mt-0">

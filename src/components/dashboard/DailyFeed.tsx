@@ -4,21 +4,44 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckSquare, Clock, Mic, Plus, ArrowRight, LogOut } from "lucide-react";
+import { CheckSquare, Clock, Mic, Plus, ArrowRight, LogOut, MessageCircle, Mail, Phone } from "lucide-react";
 
 interface DailyFeedProps {
   onLogout: () => void;
+  onNavigateToTab?: (tab: string) => void;
 }
 
-export const DailyFeed = ({ onLogout }: DailyFeedProps) => {
+export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
   const [idea, setIdea] = useState("");
   const [todayTasks, setTodayTasks] = useState([]);
-  const [stats, setStats] = useState({
-    completedToday: 2,
-    totalToday: 5
-  });
   const [isLoading, setIsLoading] = useState(false);
   const [showFAB, setShowFAB] = useState(false);
+  const [importantMessages, setImportantMessages] = useState([
+    {
+      id: 1,
+      type: 'whatsapp',
+      sender: 'Sarah Johnson',
+      preview: 'Hey! Can we reschedule our meeting tomorrow? Something urgent came up...',
+      time: '2 min ago',
+      priority: 'high'
+    },
+    {
+      id: 2,
+      type: 'email',
+      sender: 'Project Manager',
+      preview: 'The client wants to discuss the new features we proposed. Please review...',
+      time: '15 min ago',
+      priority: 'medium'
+    },
+    {
+      id: 3,
+      type: 'whatsapp',
+      sender: 'Mom',
+      preview: 'Don\'t forget dinner on Sunday! Let me know if you can make it.',
+      time: '1 hour ago',
+      priority: 'low'
+    }
+  ]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -61,6 +84,30 @@ export const DailyFeed = ({ onLogout }: DailyFeedProps) => {
 
       if (ideaError) throw ideaError;
 
+      // Create mock tasks based on the idea
+      const mockTasks = [
+        {
+          title: `Research phase for: ${idea.substring(0, 30)}...`,
+          description: "Initial research and planning",
+          due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          idea_id: ideaData.id,
+          user_id: (await supabase.auth.getUser()).data.user?.id
+        },
+        {
+          title: `First action step for: ${idea.substring(0, 30)}...`,
+          description: "Begin implementation",
+          due_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+          idea_id: ideaData.id,
+          user_id: (await supabase.auth.getUser()).data.user?.id
+        }
+      ];
+
+      const { error: tasksError } = await supabase
+        .from('tasks')
+        .insert(mockTasks);
+
+      if (tasksError) throw tasksError;
+
       toast({
         title: "✨ Idea captured!",
         description: "We're breaking it down into actionable steps.",
@@ -96,18 +143,42 @@ export const DailyFeed = ({ onLogout }: DailyFeedProps) => {
           task.id === taskId ? { ...task, status: newStatus } : task
         )
       );
-
-      if (newStatus === 'completed') {
-        setStats(prev => ({ ...prev, completedToday: prev.completedToday + 1 }));
-      } else {
-        setStats(prev => ({ ...prev, completedToday: Math.max(0, prev.completedToday - 1) }));
-      }
     } catch (error) {
       console.error('Error updating task:', error);
     }
   };
 
-  const progressPercentage = (stats.completedToday / stats.totalToday) * 100;
+  const handleViewAllTasks = () => {
+    if (onNavigateToTab) {
+      onNavigateToTab('tasks');
+    }
+  };
+
+  const getMessageIcon = (type: string) => {
+    switch (type) {
+      case 'whatsapp':
+        return <MessageCircle className="w-4 h-4 text-green-500" />;
+      case 'email':
+        return <Mail className="w-4 h-4 text-blue-500" />;
+      case 'phone':
+        return <Phone className="w-4 h-4 text-purple-500" />;
+      default:
+        return <MessageCircle className="w-4 h-4 text-gray-500" />;
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return 'border-l-red-400 bg-red-50';
+      case 'medium':
+        return 'border-l-yellow-400 bg-yellow-50';
+      case 'low':
+        return 'border-l-green-400 bg-green-50';
+      default:
+        return 'border-l-gray-400 bg-gray-50';
+    }
+  };
 
   return (
     <div className="space-y-8 max-w-md mx-auto pb-24">
@@ -163,7 +234,12 @@ export const DailyFeed = ({ onLogout }: DailyFeedProps) => {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">Today's Focus</h3>
-          <Button variant="ghost" size="sm" className="text-purple-600 hover:text-purple-700 text-sm">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleViewAllTasks}
+            className="text-purple-600 hover:text-purple-700 text-sm"
+          >
             View All Tasks <ArrowRight className="h-3 w-3 ml-1" />
           </Button>
         </div>
@@ -208,58 +284,69 @@ export const DailyFeed = ({ onLogout }: DailyFeedProps) => {
         )}
       </div>
 
-      {/* 4. Mini Progress Tracker */}
-      <Card className="bg-white border border-gray-100 rounded-2xl">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-sm text-gray-600">Today's Progress</p>
-              <p className="text-lg font-semibold text-gray-900">
-                ✓ {stats.completedToday} of {stats.totalToday} tasks done
-              </p>
-            </div>
-            <div className="relative w-16 h-16">
-              <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 36 36">
-                <path
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="#f3f4f6"
-                  strokeWidth="3"
-                />
-                <path
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="#10b981"
-                  strokeWidth="3"
-                  strokeDasharray={`${progressPercentage}, 100`}
-                  className="transition-all duration-300"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm font-semibold text-gray-900">
-                  {Math.round(progressPercentage)}%
-                </span>
-              </div>
-            </div>
-          </div>
-          <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700 text-sm">
-            View Weekly Summary
+      {/* 3. Important Messages */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Important Messages</h3>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => onNavigateToTab && onNavigateToTab('messages')}
+            className="text-purple-600 hover:text-purple-700 text-sm"
+          >
+            View All <ArrowRight className="h-3 w-3 ml-1" />
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+        
+        <div className="space-y-3">
+          {importantMessages.map((message) => (
+            <Card key={message.id} className={`border-l-4 rounded-2xl hover:shadow-md transition-shadow ${getPriorityColor(message.priority)}`}>
+              <CardContent className="p-4">
+                <div className="flex items-start space-x-3">
+                  {getMessageIcon(message.type)}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-medium text-gray-900 text-sm truncate">{message.sender}</p>
+                      <span className="text-xs text-gray-500">{message.time}</span>
+                    </div>
+                    <p className="text-sm text-gray-600 line-clamp-2">{message.preview}</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex space-x-2">
+                  <Button size="sm" variant="outline" className="text-xs rounded-full">
+                    Quick Reply
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-xs rounded-full">
+                    Mark Read
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
 
       {/* Floating Action Button */}
       <div className="fixed bottom-20 right-6 z-10">
         <div className="relative">
           {showFAB && (
             <div className="absolute bottom-16 right-0 space-y-3 animate-fade-in">
-              <Button className="bg-white shadow-lg border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full w-12 h-12 p-0">
+              <Button 
+                onClick={() => onNavigateToTab && onNavigateToTab('capture')}
+                className="bg-white shadow-lg border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full w-12 h-12 p-0"
+              >
                 Add Idea
               </Button>
-              <Button className="bg-white shadow-lg border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full w-12 h-12 p-0">
+              <Button 
+                onClick={() => onNavigateToTab && onNavigateToTab('tasks')}
+                className="bg-white shadow-lg border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full w-12 h-12 p-0"
+              >
                 Add Task
               </Button>
-              <Button className="bg-white shadow-lg border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full w-12 h-12 p-0">
+              <Button 
+                onClick={() => onNavigateToTab && onNavigateToTab('messages')}
+                className="bg-white shadow-lg border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full w-12 h-12 p-0"
+              >
                 Paste Message
               </Button>
             </div>
