@@ -12,7 +12,13 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
-type Task = Tables<'tasks'>;
+type Task = Tables<'tasks'> & {
+  priority?: string;
+  estimated_duration?: string;
+  needs_user_input?: boolean;
+  timeline_question?: string;
+  idea_id?: string;
+};
 
 interface EditTaskModalProps {
   task: Task;
@@ -71,7 +77,7 @@ export const EditTaskModal = ({ task, isOpen, onClose, onUpdate }: EditTaskModal
 
       if (error) throw error;
 
-      onUpdate(data);
+      onUpdate(data as Task);
       onClose();
       
       toast({

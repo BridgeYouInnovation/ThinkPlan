@@ -11,18 +11,21 @@ export type Database = {
     Tables: {
       ideas: {
         Row: {
+          ai_response: Json | null
           content: string
           created_at: string
           id: string
           user_id: string
         }
         Insert: {
+          ai_response?: Json | null
           content: string
           created_at?: string
           id?: string
           user_id: string
         }
         Update: {
+          ai_response?: Json | null
           content?: string
           created_at?: string
           id?: string
@@ -86,9 +89,13 @@ export type Database = {
           created_at: string
           description: string | null
           due_date: string | null
+          estimated_duration: string | null
           id: string
           idea_id: string | null
+          needs_user_input: boolean | null
+          priority: string | null
           status: Database["public"]["Enums"]["task_status"]
+          timeline_question: string | null
           title: string
           updated_at: string
           user_id: string
@@ -97,9 +104,13 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string | null
+          estimated_duration?: string | null
           id?: string
           idea_id?: string | null
+          needs_user_input?: boolean | null
+          priority?: string | null
           status?: Database["public"]["Enums"]["task_status"]
+          timeline_question?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -108,9 +119,13 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string | null
+          estimated_duration?: string | null
           id?: string
           idea_id?: string | null
+          needs_user_input?: boolean | null
+          priority?: string | null
           status?: Database["public"]["Enums"]["task_status"]
+          timeline_question?: string | null
           title?: string
           updated_at?: string
           user_id?: string
