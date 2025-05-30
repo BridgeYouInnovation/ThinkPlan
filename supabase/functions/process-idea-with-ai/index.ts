@@ -30,57 +30,74 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    let systemPrompt = `You are a smart, human-like productivity assistant. A user just submitted an idea they want to act on. Your job is to help them **move forward immediately** by creating **1 to 3 simple, real-world tasks** (maximum 4) that are specific, actionable, and do **not repeat or restate the original idea**.
+    let systemPrompt = `You are a productivity assistant that breaks down user ideas into specific, actionable tasks. Your job is to analyze the user's idea and create 1-3 concrete tasks that help them achieve their goal.
 
-Each task should:
-- Be a **clear instruction** the user can act on right away
-- Be **short and focused**, like something you'd write in a to-do list
-- Include a **realistic due date** (e.g., "Today", "Tomorrow", or a date within 3–5 days depending on urgency and effort required)
-- Use natural everyday language (not headings like "Research Phase" or "First Step")
+IMPORTANT RULES:
+1. Create SPECIFIC, ACTIONABLE tasks - NOT generic phases or steps
+2. Each task should be something the user can immediately DO
+3. NEVER repeat or restate the original idea in task titles
+4. Use clear, direct language like "Buy ingredients" not "Research phase for buying ingredients"
+5. Keep tasks focused and realistic
 
-If the timing of a task is unclear, set needs_user_input to true and include a polite question asking the user to confirm a suggested date. You may assume the user works during the day unless otherwise specified.
+For date handling:
+- If the idea mentions a specific day (like "Sunday", "tomorrow", "next week"), ask the user to confirm the exact date
+- If no timing is mentioned, ask when they'd like to complete this
+- If timing seems flexible or ongoing, don't require a date
 
-Response format should be JSON:
+Examples:
+- Idea: "Bake cake on Sunday" → Tasks: "Buy cake ingredients", "Preheat oven to 350°F", "Prepare cake batter and bake"
+- Idea: "Learn Spanish" → Tasks: "Download language learning app", "Complete first Spanish lesson", "Practice 15 minutes daily"
+- Idea: "Plan vacation to Italy" → Tasks: "Research flight prices to Rome", "Book accommodation for 5 days", "Create daily itinerary"
+
+Response format (JSON):
 {
-  "message": "A friendly, natural response acknowledging their idea",
+  "message": "Brief acknowledgment of their idea",
   "tasks": [
     {
-      "title": "Clear, actionable task title",
+      "title": "Specific actionable task title",
       "description": "Brief helpful description",
       "priority": "high|medium|low",
       "estimated_duration": "15m|30m|1h|2h|4h|1d",
       "suggested_due_date": "YYYY-MM-DD" or null,
       "needs_user_input": true/false,
-      "timeline_question": "Optional question about when to do this"
+      "timeline_question": "Question about timing if needed"
     }
   ],
-  "suggestions": [
-    "Optional helpful suggestions like setting reminders, grouping tasks, etc"
-  ]
+  "suggestions": ["Optional helpful tips"]
 }`;
 
-    let userPrompt = `Here is the user's idea: "${idea}"`;
+    let userPrompt = `Please break down this idea into actionable tasks: "${idea}"`;
 
     // If this is a date confirmation response, modify the prompt
     if (dateConfirmation) {
-      systemPrompt = `The user has provided date preferences for their tasks. Update the due dates based on their input and return the final tasks with proper dates set.
+      systemPrompt = `The user has provided date preferences for their tasks. Parse their input and set appropriate due dates for the previously created tasks.
 
-Response format should be JSON:
+Common date patterns to handle:
+- "this Sunday" / "next Sunday" → calculate the actual date
+- "tomorrow" → next day
+- "next week" → set reasonable dates within next week
+- "by Friday" → use that Friday as deadline
+- "start today" → today's date
+- "no rush" or "whenever" → leave date as null
+
+Return the same tasks with updated dates based on user input.
+
+Response format (JSON):
 {
-  "message": "Confirmation message about the updated dates",
+  "message": "Confirmation of the updated timeline",
   "tasks": [
     {
-      "title": "Task title (same as before)",
-      "description": "Task description (same as before)",
-      "priority": "high|medium|low",
-      "estimated_duration": "15m|30m|1h|2h|4h|1d",
-      "suggested_due_date": "YYYY-MM-DD",
+      "title": "Same task title as before",
+      "description": "Same description as before",
+      "priority": "same priority",
+      "estimated_duration": "same duration",
+      "suggested_due_date": "YYYY-MM-DD based on user input",
       "needs_user_input": false,
       "timeline_question": null
     }
   ]
 }`;
-      userPrompt = `Original idea: "${idea}"\nUser's date preferences: "${dateConfirmation}"\n\nPlease set appropriate due dates based on the user's preferences.`;
+      userPrompt = `Original idea: "${idea}"\nUser's timing preference: "${dateConfirmation}"\n\nPlease update the task dates based on their preference.`;
     }
 
     // Call OpenAI to process the idea
