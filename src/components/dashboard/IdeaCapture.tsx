@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Mic, MicOff, Lightbulb, Sparkles, Zap, ArrowRight, ChevronLeft, Calendar, Info, Brain, CheckSquare, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { DateConfirmationModal } from "./DateConfirmationModal";
+import { VoiceRecordingIndicator } from "./VoiceRecordingIndicator";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 
 export const IdeaCapture = () => {
@@ -188,6 +189,13 @@ export const IdeaCapture = () => {
 
   return (
     <div className="space-y-6 max-w-md mx-auto">
+      {/* Voice Recording Overlay */}
+      <VoiceRecordingIndicator 
+        isRecording={isRecording}
+        isProcessing={isProcessing}
+        onStop={handleVoiceInput}
+      />
+
       {/* First Time Hint */}
       {showFirstTimeHint && (
         <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-4">
@@ -288,22 +296,18 @@ export const IdeaCapture = () => {
                     size="sm"
                     onClick={handleVoiceInput}
                     disabled={isProcessing}
-                    className={`rounded-full p-2 ${
+                    className={`rounded-full p-3 transition-all duration-300 ${
                       isRecording 
-                        ? 'bg-red-100 text-red-600 animate-pulse' 
+                        ? 'bg-red-500 text-white shadow-lg scale-110 animate-pulse' 
                         : isProcessing 
                         ? 'bg-blue-100 text-blue-600' 
-                        : 'hover:bg-gray-100'
+                        : 'hover:bg-purple-100 hover:text-purple-600 bg-gray-50'
                     }`}
                   >
-                    {isRecording ? (
-                      <MicOff className="h-4 w-4" />
-                    ) : (
-                      <Mic className="h-4 w-4" />
-                    )}
+                    <Mic className="h-5 w-5" />
                   </Button>
                   <span className="text-xs text-gray-400">
-                    {isRecording ? 'Stop recording' : isProcessing ? 'Processing...' : 'or type below'}
+                    {isRecording ? 'Recording...' : isProcessing ? 'Processing...' : 'or speak'}
                   </span>
                 </div>
               </div>

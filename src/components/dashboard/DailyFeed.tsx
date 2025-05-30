@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckSquare, Clock, Mic, MicOff, Plus, ArrowRight, LogOut, MessageCircle, Mail, Phone, Brain, Sparkles } from "lucide-react";
 import { DateConfirmationModal } from "./DateConfirmationModal";
+import { VoiceRecordingIndicator } from "./VoiceRecordingIndicator";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 
 interface DailyFeedProps {
@@ -238,6 +239,13 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
 
   return (
     <div className="space-y-8 max-w-md mx-auto pb-24">
+      {/* Voice Recording Overlay */}
+      <VoiceRecordingIndicator 
+        isRecording={isRecording}
+        isProcessing={isProcessing}
+        onStop={handleVoiceInput}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between pt-4">
         <div>
@@ -352,19 +360,15 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
                 size="sm"
                 onClick={handleVoiceInput}
                 disabled={isProcessing}
-                className={`absolute right-3 top-3 rounded-full w-8 h-8 p-0 ${
+                className={`absolute right-3 top-3 rounded-full w-10 h-10 p-0 transition-all duration-300 ${
                   isRecording 
-                    ? 'text-red-600 bg-red-100 animate-pulse' 
+                    ? 'text-white bg-red-500 scale-110 animate-pulse shadow-lg' 
                     : isProcessing 
                     ? 'text-blue-600 bg-blue-100' 
-                    : 'text-gray-400 hover:text-purple-600'
+                    : 'text-gray-400 hover:text-purple-600 hover:bg-purple-50'
                 }`}
               >
-                {isRecording ? (
-                  <MicOff className="h-4 w-4" />
-                ) : (
-                  <Mic className="h-4 w-4" />
-                )}
+                <Mic className="h-5 w-5" />
               </Button>
             </div>
             

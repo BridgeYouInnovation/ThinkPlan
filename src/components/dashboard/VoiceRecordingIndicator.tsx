@@ -1,0 +1,101 @@
+
+import { MicOff, Square } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+interface VoiceRecordingIndicatorProps {
+  isRecording: boolean;
+  isProcessing: boolean;
+  onStop: () => void;
+}
+
+export const VoiceRecordingIndicator = ({ 
+  isRecording, 
+  isProcessing, 
+  onStop 
+}: VoiceRecordingIndicatorProps) => {
+  if (!isRecording && !isProcessing) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in">
+      <div className="bg-white rounded-3xl p-8 mx-4 max-w-sm w-full shadow-2xl">
+        <div className="text-center space-y-6">
+          {/* Recording Animation */}
+          <div className="relative">
+            <div className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center ${
+              isRecording 
+                ? 'bg-red-500 animate-pulse' 
+                : 'bg-blue-500'
+            }`}>
+              {/* Ripple effect for recording */}
+              {isRecording && (
+                <>
+                  <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75"></div>
+                  <div className="absolute inset-2 rounded-full bg-red-400 animate-ping opacity-50 animation-delay-75"></div>
+                </>
+              )}
+              
+              {isProcessing ? (
+                <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+              ) : (
+                <MicOff className="w-10 h-10 text-white relative z-10" />
+              )}
+            </div>
+            
+            {/* Sound waves animation */}
+            {isRecording && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex space-x-1">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1 bg-red-300 rounded-full animate-pulse"
+                      style={{
+                        height: `${Math.random() * 20 + 10}px`,
+                        animationDelay: `${i * 0.1}s`,
+                        animationDuration: '0.8s'
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Status Text */}
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              {isProcessing ? 'Processing...' : 'Recording'}
+            </h3>
+            <p className="text-gray-600 text-sm">
+              {isProcessing 
+                ? 'Converting your speech to text...' 
+                : 'Speak clearly and tap Done when finished'
+              }
+            </p>
+          </div>
+
+          {/* Action Button */}
+          {isRecording && (
+            <Button
+              onClick={onStop}
+              className="w-full h-12 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-2xl font-medium"
+            >
+              <Square className="w-5 h-5 mr-2" />
+              Done Recording
+            </Button>
+          )}
+
+          {/* Processing indicator */}
+          {isProcessing && (
+            <div className="text-center">
+              <div className="inline-flex items-center space-x-2 text-blue-600">
+                <div className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin"></div>
+                <span className="text-sm font-medium">Please wait...</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
