@@ -1,9 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckSquare, Clock, Mic, Plus, ArrowRight, LogOut, MessageCircle, Mail, Phone } from "lucide-react";
+import { CheckSquare, Clock, Mic, Plus, ArrowRight, LogOut, MessageCircle, Mail, Phone, Brain, Sparkles } from "lucide-react";
+import { DateConfirmationModal } from "./DateConfirmationModal";
 
 interface DailyFeedProps {
   onLogout: () => void;
@@ -15,6 +17,9 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
   const [todayTasks, setTodayTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showFAB, setShowFAB] = useState(false);
+  const [aiResponse, setAiResponse] = useState<any>(null);
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [pendingTasks, setPendingTasks] = useState<any[]>([]);
   const [importantMessages, setImportantMessages] = useState([
     {
       id: 1,
@@ -66,60 +71,100 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
     }
   };
 
-  const handleIdeaSubmit = async () => {
+  const handleSubmit = async () => {
     if (!idea.trim()) return;
     
     setIsLoading(true);
+    setAiResponse(null);
     
     try {
-      const { data: ideaData, error: ideaError } = await supabase
-        .from('ideas')
-        .insert({
-          content: idea.trim(),
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        })
-        .select()
-        .single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
-      if (ideaError) throw ideaError;
-
-      // Create mock tasks based on the idea
-      const mockTasks = [
-        {
-          title: `Research phase for: ${idea.substring(0, 30)}...`,
-          description: "Initial research and planning",
-          due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          idea_id: ideaData.id,
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        },
-        {
-          title: `First action step for: ${idea.substring(0, 30)}...`,
-          description: "Begin implementation",
-          due_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-          idea_id: ideaData.id,
-          user_id: (await supabase.auth.getUser()).data.user?.id
+      const { data, error } = await supabase.functions.invoke('process-idea-with-ai', {
+        body: {
+          idea: idea.trim(),
+          userId: user.id
         }
-      ];
+      });
 
-      const { error: tasksError } = await supabase
-        .from('tasks')
-        .insert(mockTasks);
+      if (error) {
+        throw error;
+      }
 
-      if (tasksError) throw tasksError;
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to process idea');
+      }
 
+      // Check if we need date confirmation
+      if (data.needsDateConfirmation) {
+        setPendingTasks(data.pendingTasks);
+        setShowDateModal(true);
+        setAiResponse(data.aiResponse);
+        return;
+      }
+
+      // Tasks were created successfully
+      setAiResponse(data.aiResponse);
+      
       toast({
-        title: "✨ Idea captured!",
-        description: "We're breaking it down into actionable steps.",
+        title: "✨ Idea transformed!",
+        description: `Created ${data.tasks.length} tasks from your idea. Check the Tasks tab!`,
       });
       
       setIdea("");
-      fetchTodaysTasks();
+      fetchTodaysTasks(); // Refresh tasks
     } catch (error) {
       console.error('Error processing idea:', error);
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to process your idea. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDateConfirmation = async (dateInput: string) => {
+    setIsLoading(true);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase.functions.invoke('process-idea-with-ai', {
+        body: {
+          idea: idea.trim(),
+          userId: user.id,
+          dateConfirmation: dateInput
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to set dates');
+      }
+
+      setShowDateModal(false);
+      setAiResponse(data.aiResponse);
+      
+      toast({
+        title: "🎯 Tasks created!",
+        description: `Created ${data.tasks.length} tasks with your preferred timing. Check the Tasks tab!`,
+      });
+      
+      setIdea("");
+      fetchTodaysTasks(); // Refresh tasks
+    } catch (error) {
+      console.error('Error setting dates:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to set task dates. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -197,6 +242,86 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
         </Button>
       </div>
 
+      {/* AI Response Display */}
+      {aiResponse && (
+        <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-3xl p-6 border border-green-200">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center">
+              <Sparkles className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">AI Analysis Complete</h3>
+              <p className="text-gray-600 text-sm">{aiResponse.message}</p>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <h4 className="font-medium text-gray-900 text-sm mb-3">Generated Tasks:</h4>
+            {aiResponse.tasks.map((task: any, index: number) => (
+              <div key={index} className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                      {index + 1}
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      task.priority === 'high' ? 'bg-red-100 text-red-700' :
+                      task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-green-100 text-green-700'
+                    }`}>
+                      {task.priority}
+                    </span>
+                  </div>
+                  <CheckSquare className="w-4 h-4 text-gray-400" />
+                </div>
+                
+                <div>
+                  <h4 className="font-semibold text-gray-900 text-sm">{task.title}</h4>
+                  <p className="text-gray-600 text-xs mt-1">{task.description}</p>
+                </div>
+                
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div className="flex items-center space-x-4">
+                    {task.estimated_duration && (
+                      <div className="flex items-center space-x-1">
+                        <Clock className="w-3 h-3" />
+                        <span>{task.estimated_duration}</span>
+                      </div>
+                    )}
+                    {task.suggested_due_date && (
+                      <div className="flex items-center space-x-1">
+                        <ArrowRight className="w-3 h-3" />
+                        <span>{new Date(task.suggested_due_date).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                  </div>
+                  {task.needs_user_input && (
+                    <span className="text-orange-600 font-medium">Needs input</span>
+                  )}
+                </div>
+                
+                {task.timeline_question && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-2">
+                    <p className="text-orange-800 text-xs">{task.timeline_question}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          
+          {aiResponse.suggestions && aiResponse.suggestions.length > 0 && (
+            <div className="mt-4 bg-white rounded-2xl p-4">
+              <h5 className="font-medium text-gray-900 text-sm mb-2">💡 Suggestions:</h5>
+              <ul className="space-y-1">
+                {aiResponse.suggestions.map((suggestion: string, index: number) => (
+                  <li key={index} className="text-gray-600 text-sm">• {suggestion}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 1. Capture Your Idea */}
       <Card className="idea-capture-glow bg-white border border-gray-100 shadow-sm rounded-3xl overflow-hidden">
         <CardContent className="p-6">
@@ -206,9 +331,9 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
               <textarea
                 value={idea}
                 onChange={(e) => setIdea(e.target.value)}
-                placeholder="What's on your mind?"
+                placeholder="Brain dump everything here... don't worry about structure, just capture your thoughts!"
                 rows={3}
-                className="w-full border-2 border-gray-200 bg-white rounded-2xl p-4 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 resize-none text-gray-900 placeholder-gray-600 text-base font-medium shadow-sm"
+                className="w-full border-2 border-dashed border-gray-200 bg-gray-50 rounded-2xl p-4 focus:ring-2 focus:ring-purple-500 focus:bg-white focus:border-purple-300 transition-all duration-200 resize-none text-gray-900 placeholder-gray-400 text-base font-medium shadow-sm"
               />
               <Button
                 variant="ghost"
@@ -218,13 +343,38 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
                 <Mic className="h-4 w-4" />
               </Button>
             </div>
+            
+            {idea.length > 0 && (
+              <div className="flex items-center space-x-2 text-xs text-gray-500">
+                <Sparkles className="h-3 w-3" />
+                <span>AI will break this down into actionable tasks</span>
+              </div>
+            )}
+            
             <Button
-              onClick={handleIdeaSubmit}
+              onClick={handleSubmit}
               disabled={!idea.trim() || isLoading}
               className="w-full h-12 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 rounded-2xl font-medium"
             >
-              {isLoading ? "Breaking it down..." : "Break it Down"}
+              {isLoading ? (
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
+                  <span>AI is analyzing...</span>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Brain className="w-5 h-5" />
+                  <span>Transform into Tasks</span>
+                  <ArrowRight className="w-4 h-4" />
+                </div>
+              )}
             </Button>
+            
+            {idea.trim() && (
+              <p className="text-center text-xs text-gray-500">
+                💡 Your idea will be analyzed and broken into actionable steps
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -352,6 +502,15 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
           </Button>
         </div>
       </div>
+
+      {/* Date Confirmation Modal */}
+      <DateConfirmationModal
+        isOpen={showDateModal}
+        onClose={() => setShowDateModal(false)}
+        onConfirm={handleDateConfirmation}
+        pendingTasks={pendingTasks}
+        isLoading={isLoading}
+      />
     </div>
   );
 };
