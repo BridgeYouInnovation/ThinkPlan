@@ -226,6 +226,57 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
     }
   };
 
+  const TaskPreview = ({ task, index }: { task: any, index: number }) => (
+    <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center space-x-2">
+          <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+            {index + 1}
+          </div>
+          <span className={`text-xs px-2 py-1 rounded-full ${
+            task.priority === 'high' ? 'bg-red-100 text-red-700' :
+            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+            'bg-green-100 text-green-700'
+          }`}>
+            {task.priority}
+          </span>
+        </div>
+        <CheckSquare className="w-4 h-4 text-gray-400" />
+      </div>
+      
+      <div>
+        <h4 className="font-semibold text-gray-900 text-sm">{task.title}</h4>
+        <p className="text-gray-600 text-xs mt-1">{task.description}</p>
+      </div>
+      
+      <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="flex items-center space-x-4">
+          {task.estimated_duration && (
+            <div className="flex items-center space-x-1">
+              <Clock className="w-3 h-3" />
+              <span>{task.estimated_duration}</span>
+            </div>
+          )}
+          {task.suggested_due_date && (
+            <div className="flex items-center space-x-1">
+              <ArrowRight className="w-3 h-3" />
+              <span>{new Date(task.suggested_due_date).toLocaleDateString()}</span>
+            </div>
+          )}
+        </div>
+        {task.needs_user_input && (
+          <span className="text-orange-600 font-medium">Needs input</span>
+        )}
+      </div>
+      
+      {task.timeline_question && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-2">
+          <p className="text-orange-800 text-xs">{task.timeline_question}</p>
+        </div>
+      )}
+    </div>
+  );
+
   const handleVoiceInput = async () => {
     if (isRecording) {
       const transcribedText = await stopRecording();
@@ -278,54 +329,7 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
           <div className="space-y-3">
             <h4 className="font-medium text-gray-900 text-sm mb-3">Generated Tasks:</h4>
             {aiResponse.tasks.map((task: any, index: number) => (
-              <div key={index} className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                      {index + 1}
-                    </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      task.priority === 'high' ? 'bg-red-100 text-red-700' :
-                      task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-green-100 text-green-700'
-                    }`}>
-                      {task.priority}
-                    </span>
-                  </div>
-                  <CheckSquare className="w-4 h-4 text-gray-400" />
-                </div>
-                
-                <div>
-                  <h4 className="font-semibold text-gray-900 text-sm">{task.title}</h4>
-                  <p className="text-gray-600 text-xs mt-1">{task.description}</p>
-                </div>
-                
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <div className="flex items-center space-x-4">
-                    {task.estimated_duration && (
-                      <div className="flex items-center space-x-1">
-                        <Clock className="w-3 h-3" />
-                        <span>{task.estimated_duration}</span>
-                      </div>
-                    )}
-                    {task.suggested_due_date && (
-                      <div className="flex items-center space-x-1">
-                        <ArrowRight className="w-3 h-3" />
-                        <span>{new Date(task.suggested_due_date).toLocaleDateString()}</span>
-                      </div>
-                    )}
-                  </div>
-                  {task.needs_user_input && (
-                    <span className="text-orange-600 font-medium">Needs input</span>
-                  )}
-                </div>
-                
-                {task.timeline_question && (
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-2">
-                    <p className="text-orange-800 text-xs">{task.timeline_question}</p>
-                  </div>
-                )}
-              </div>
+              <TaskPreview key={index} task={task} index={index} />
             ))}
           </div>
           
@@ -347,29 +351,38 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
         <CardContent className="p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Capture Your Idea</h3>
           <div className="space-y-4">
-            <div className="relative">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-gray-500 font-medium">WHAT'S ON YOUR MIND?</label>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleVoiceInput}
+                    disabled={isProcessing}
+                    className={`rounded-full p-3 transition-all duration-300 ${
+                      isRecording 
+                        ? 'bg-red-500 text-white shadow-lg scale-110 animate-pulse' 
+                        : isProcessing 
+                        ? 'bg-blue-100 text-blue-600' 
+                        : 'hover:bg-purple-100 hover:text-purple-600 bg-gray-50'
+                    }`}
+                  >
+                    <Mic className="h-5 w-5" />
+                  </Button>
+                  <span className="text-xs text-gray-400">
+                    {isRecording ? 'Recording...' : isProcessing ? 'Processing...' : 'or speak'}
+                  </span>
+                </div>
+              </div>
+              
               <textarea
                 value={idea}
                 onChange={(e) => setIdea(e.target.value)}
                 placeholder="Brain dump everything here... don't worry about structure, just capture your thoughts!"
-                rows={3}
+                rows={4}
                 className="w-full border-2 border-dashed border-gray-200 bg-gray-50 rounded-2xl p-4 focus:ring-2 focus:ring-purple-500 focus:bg-white focus:border-purple-300 transition-all duration-200 resize-none text-gray-900 placeholder-gray-400 text-base font-medium shadow-sm"
               />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleVoiceInput}
-                disabled={isProcessing}
-                className={`absolute right-3 top-3 rounded-full w-10 h-10 p-0 transition-all duration-300 ${
-                  isRecording 
-                    ? 'text-white bg-red-500 scale-110 animate-pulse shadow-lg' 
-                    : isProcessing 
-                    ? 'text-blue-600 bg-blue-100' 
-                    : 'text-gray-400 hover:text-purple-600 hover:bg-purple-50'
-                }`}
-              >
-                <Mic className="h-5 w-5" />
-              </Button>
             </div>
             
             {idea.length > 0 && (
