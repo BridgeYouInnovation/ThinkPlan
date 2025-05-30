@@ -3,8 +3,9 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Mic, Lightbulb, Sparkles, Zap, ArrowRight, ChevronLeft, Calendar } from "lucide-react";
+import { Mic, Lightbulb, Sparkles, Zap, ArrowRight, ChevronLeft, Calendar, Info, Brain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const IdeaCapture = () => {
@@ -12,6 +13,9 @@ export const IdeaCapture = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showFirstTimeHint, setShowFirstTimeHint] = useState(() => {
+    return !localStorage.getItem('hasSeenCaptureHint');
+  });
   const { toast } = useToast();
 
   const handleSubmit = async () => {
@@ -63,7 +67,7 @@ export const IdeaCapture = () => {
       
       toast({
         title: "✨ Idea transformed!",
-        description: "Your idea has been broken down into actionable tasks.",
+        description: "Your idea has been broken down into actionable tasks. Check the Tasks tab!",
       });
       setIdea("");
     } catch (error) {
@@ -87,20 +91,64 @@ export const IdeaCapture = () => {
     setTimeout(() => setIsRecording(false), 3000);
   };
 
+  const dismissHint = () => {
+    setShowFirstTimeHint(false);
+    localStorage.setItem('hasSeenCaptureHint', 'true');
+  };
+
   return (
     <div className="space-y-6 max-w-md mx-auto">
+      {/* First Time Hint */}
+      {showFirstTimeHint && (
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-4">
+          <div className="flex items-start space-x-3">
+            <Brain className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="text-green-900 font-medium text-sm">Welcome to Idea Capture!</h4>
+              <p className="text-green-700 text-sm mt-1">
+                This is your brainstorming space. Quickly jot down raw ideas or voice thoughts. 
+                AI will automatically break them into actionable tasks for you!
+              </p>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={dismissHint}
+                className="text-green-600 hover:text-green-700 mt-2 p-0 h-auto"
+              >
+                Got it!
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-gradient-to-br from-purple-600 via-purple-700 to-blue-600 rounded-3xl p-6 text-white shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 rounded-full w-10 h-10 p-0">
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl font-bold">Add Task</h1>
+          <div className="flex items-center space-x-2">
+            <h1 className="text-xl font-bold">Capture Ideas</h1>
+            <Tooltip>
+              <TooltipTrigger>
+                <Info className="h-4 w-4 text-purple-200 hover:text-white cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">Quickly capture unstructured thoughts. AI will turn them into organized tasks!</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center">
               <span className="text-white text-sm font-medium">U</span>
             </div>
           </div>
+        </div>
+        
+        <div className="text-center">
+          <Lightbulb className="h-8 w-8 mx-auto mb-2 text-yellow-300" />
+          <p className="text-purple-100 text-sm">Let your thoughts flow freely</p>
         </div>
       </div>
 
@@ -108,85 +156,68 @@ export const IdeaCapture = () => {
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 space-y-6">
           <div className="space-y-4">
-            <input
-              type="text"
-              placeholder="Your Task Name"
-              className="w-full text-lg placeholder-gray-400 border-0 border-b border-gray-200 focus:border-purple-500 focus:outline-none py-3 bg-transparent"
-            />
-            
             <div className="space-y-3">
-              <label className="text-sm text-gray-500 font-medium">RECENT MEET</label>
-              <div className="flex items-center space-x-3">
-                {/* Avatar placeholders */}
-                {['John', 'Ranak', 'Parkaa', 'Mahmud'].map((name, index) => (
-                  <div key={name} className="flex flex-col items-center space-y-1">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-medium ${
-                      index === 0 ? 'bg-pink-400' : 
-                      index === 1 ? 'bg-red-400' : 
-                      index === 2 ? 'bg-purple-500' : 'bg-teal-400'
-                    }`}>
-                      {name[0]}
-                    </div>
-                    <span className="text-xs text-gray-500">{name}</span>
-                  </div>
-                ))}
-                <div className="w-12 h-12 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-gray-400" />
-                </div>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <label className="text-sm text-gray-500 font-medium">DATE</label>
               <div className="flex items-center justify-between">
-                <span className="text-gray-900">May 01, 2020</span>
-                <Calendar className="w-5 h-5 text-gray-400" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm text-gray-500 font-medium">START TIME</label>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-900">10:00 AM</span>
-                  <ChevronLeft className="w-4 h-4 text-gray-400 rotate-90" />
+                <label className="text-sm text-gray-500 font-medium">WHAT'S ON YOUR MIND?</label>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={startVoiceInput}
+                    disabled={isRecording}
+                    className={`rounded-full p-2 ${isRecording ? 'bg-red-100 text-red-600' : 'hover:bg-gray-100'}`}
+                  >
+                    <Mic className={`h-4 w-4 ${isRecording ? 'animate-pulse' : ''}`} />
+                  </Button>
+                  <span className="text-xs text-gray-400">or type below</span>
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm text-gray-500 font-medium">END TIME</label>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-900">01:00 PM</span>
-                  <ChevronLeft className="w-4 h-4 text-gray-400 rotate-90" />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <label className="text-sm text-gray-500 font-medium">DESCRIPTION</label>
+              
               <Textarea
-                placeholder="Describe your idea or task..."
+                placeholder="Brain dump everything here... don't worry about structure, just capture your thoughts!"
                 value={idea}
                 onChange={(e) => setIdea(e.target.value)}
-                rows={4}
-                className="resize-none border-0 bg-gray-50 rounded-2xl p-4 focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all duration-200"
+                rows={6}
+                className="resize-none border-2 border-dashed border-gray-200 bg-gray-50 rounded-2xl p-4 focus:ring-2 focus:ring-purple-500 focus:bg-white focus:border-purple-300 transition-all duration-200 text-lg placeholder-gray-400"
               />
+              
+              {idea.length > 0 && (
+                <div className="flex items-center space-x-2 text-xs text-gray-500">
+                  <Sparkles className="h-3 w-3" />
+                  <span>AI will break this down into actionable tasks</span>
+                </div>
+              )}
             </div>
 
-            <div className="space-y-3">
-              <label className="text-sm text-gray-500 font-medium">BOARD</label>
-              <div className="flex space-x-2">
-                <Button size="sm" className="bg-orange-100 text-orange-600 hover:bg-orange-200 border-0 rounded-full">
-                  URGENT
-                </Button>
-                <Button size="sm" className="bg-green-100 text-green-600 hover:bg-green-200 border-0 rounded-full">
-                  RUNNING
-                </Button>
-                <Button size="sm" className="bg-purple-100 text-purple-600 hover:bg-purple-200 border-0 rounded-full">
-                  ONGOING
-                </Button>
-                <Button variant="outline" size="sm" className="border-dashed border-gray-300 rounded-full">
-                  <Sparkles className="w-4 h-4" />
-                </Button>
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-4 border border-purple-100">
+              <div className="flex items-center space-x-3 mb-3">
+                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                  <Zap className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900 text-sm">AI-Powered Breakdown</h4>
+                  <p className="text-gray-600 text-xs">Your ideas become organized tasks automatically</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="bg-white rounded-lg p-2 text-center">
+                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-1">
+                    <span className="text-green-600 font-bold text-xs">1</span>
+                  </div>
+                  <span className="text-gray-600">Capture</span>
+                </div>
+                <div className="bg-white rounded-lg p-2 text-center">
+                  <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-1">
+                    <Brain className="w-3 h-3 text-purple-600" />
+                  </div>
+                  <span className="text-gray-600">AI Process</span>
+                </div>
+                <div className="bg-white rounded-lg p-2 text-center">
+                  <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-1">
+                    <span className="text-blue-600 font-bold text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-600">Tasks</span>
+                </div>
               </div>
             </div>
           </div>
@@ -199,17 +230,27 @@ export const IdeaCapture = () => {
             {isLoading ? (
               <div className="flex items-center space-x-3">
                 <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
-                <span>Creating Task...</span>
+                <span>AI is working...</span>
               </div>
             ) : showSuccess ? (
               <div className="flex items-center space-x-2">
                 <Sparkles className="w-5 h-5" />
-                <span>Created!</span>
+                <span>Transformed!</span>
               </div>
             ) : (
-              "Create New Task"
+              <div className="flex items-center space-x-2">
+                <Brain className="w-5 h-5" />
+                <span>Transform into Tasks</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
             )}
           </Button>
+          
+          {idea.trim() && (
+            <p className="text-center text-xs text-gray-500">
+              💡 Your idea will be analyzed and broken into actionable steps
+            </p>
+          )}
         </div>
       </div>
     </div>

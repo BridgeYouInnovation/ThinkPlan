@@ -5,9 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash, Edit, Plus, Calendar, Clock, Users, Sparkles } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Trash, Edit, Plus, Calendar as CalendarIcon, Clock, Users, Sparkles, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Task = Tables<'tasks'>;
@@ -17,6 +21,8 @@ export const TaskList = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [showFirstTimeHint, setShowFirstTimeHint] = useState(false);
   const { toast } = useToast();
 
   const today = new Date();
@@ -29,6 +35,12 @@ export const TaskList = () => {
 
   useEffect(() => {
     fetchTasks();
+    // Check if user has seen the hint before
+    const hasSeenTaskHint = localStorage.getItem('hasSeenTaskHint');
+    if (!hasSeenTaskHint) {
+      setShowFirstTimeHint(true);
+      localStorage.setItem('hasSeenTaskHint', 'true');
+    }
   }, []);
 
   const fetchTasks = async () => {
@@ -67,12 +79,14 @@ export const TaskList = () => {
         .insert({
           title: newTaskTitle.trim(),
           user_id: user.id,
-          status: 'pending'
+          status: 'pending',
+          due_date: selectedDate?.toISOString()
         });
 
       if (error) throw error;
 
       setNewTaskTitle("");
+      setSelectedDate(new Date());
       setShowAddTask(false);
       fetchTasks();
       
@@ -251,7 +265,7 @@ export const TaskList = () => {
             className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-2xl px-6 py-3"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Capture a new idea
+            Add a task
           </Button>
         </div>
       );
@@ -259,7 +273,7 @@ export const TaskList = () => {
 
     const emptyMessages = {
       upcoming: { icon: Clock, title: "No upcoming tasks", subtitle: "You're all set for the future" },
-      completed: { icon: Calendar, title: "No completed tasks", subtitle: "Complete some tasks to see them here" }
+      completed: { icon: CalendarIcon, title: "No completed tasks", subtitle: "Complete some tasks to see them here" }
     };
 
     const { icon: Icon, title, subtitle } = emptyMessages[category] || emptyMessages.upcoming;
@@ -302,12 +316,46 @@ export const TaskList = () => {
 
   return (
     <div className="space-y-6 max-w-md mx-auto">
+      {/* First Time Hint */}
+      {showFirstTimeHint && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4">
+          <div className="flex items-start space-x-3">
+            <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="text-blue-900 font-medium text-sm">Welcome to Tasks!</h4>
+              <p className="text-blue-700 text-sm mt-1">
+                This is where your actionable tasks live, organized by Today, Upcoming, and Done. 
+                Ideas you capture get broken down into tasks here automatically!
+              </p>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowFirstTimeHint(false)}
+                className="text-blue-600 hover:text-blue-700 mt-2 p-0 h-auto"
+              >
+                Got it!
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-gradient-to-br from-purple-600 via-purple-700 to-blue-600 rounded-3xl p-6 text-white shadow-xl">
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-purple-100 text-sm">{today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-            <h1 className="text-2xl font-bold">Today</h1>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-2xl font-bold">Tasks</h1>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="h-4 w-4 text-purple-200 hover:text-white cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-sm">Manage your actionable tasks here. Ideas from Capture become tasks automatically!</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
           <Button 
             onClick={() => setShowAddTask(true)}
@@ -325,7 +373,7 @@ export const TaskList = () => {
             return (
               <div key={index} className="text-center">
                 <p className="text-purple-200 text-xs mb-1">{weekDays[date.getDay()]}</p>
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all duration-300 ${
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all duration-500 ${
                   isToday 
                     ? 'bg-gradient-to-br from-white to-purple-50 text-purple-600 font-semibold shadow-lg ring-2 ring-white/30 animate-pulse' 
                     : 'text-white hover:bg-white/20'
@@ -343,15 +391,41 @@ export const TaskList = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl p-6 w-full max-w-sm">
             <h3 className="text-lg font-semibold mb-4">Add New Task</h3>
-            <input
-              type="text"
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              placeholder="What needs to be done?"
-              className="w-full border border-gray-200 rounded-2xl p-3 mb-4 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              autoFocus
-            />
-            <div className="flex space-x-3">
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                placeholder="What needs to be done?"
+                className="w-full border border-gray-200 rounded-2xl p-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                autoFocus
+              />
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Due Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal rounded-2xl"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            
+            <div className="flex space-x-3 mt-6">
               <Button
                 onClick={() => setShowAddTask(false)}
                 variant="outline"
