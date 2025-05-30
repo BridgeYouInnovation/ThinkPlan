@@ -1,18 +1,17 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Mic, Lightbulb, Sparkles, Zap, ArrowRight, ChevronLeft, Calendar, Info, Brain } from "lucide-react";
+import { Mic, Lightbulb, Sparkles, Zap, ArrowRight, ChevronLeft, Calendar, Info, Brain, CheckSquare, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const IdeaCapture = () => {
   const [idea, setIdea] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [aiResponse, setAiResponse] = useState<any>(null);
   const [showFirstTimeHint, setShowFirstTimeHint] = useState(() => {
     return !localStorage.getItem('hasSeenCaptureHint');
   });
@@ -22,53 +21,34 @@ export const IdeaCapture = () => {
     if (!idea.trim()) return;
     
     setIsLoading(true);
+    setAiResponse(null);
     
     try {
-      const { data: ideaData, error: ideaError } = await supabase
-        .from('ideas')
-        .insert({
-          content: idea.trim(),
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        })
-        .select()
-        .single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
-      if (ideaError) {
-        throw ideaError;
-      }
-
-      const mockTasks = [
-        {
-          title: `Research phase for: ${idea.substring(0, 30)}...`,
-          description: "Initial research and planning",
-          due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          idea_id: ideaData.id,
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        },
-        {
-          title: `First action step for: ${idea.substring(0, 30)}...`,
-          description: "Begin implementation",
-          due_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-          idea_id: ideaData.id,
-          user_id: (await supabase.auth.getUser()).data.user?.id
+      const { data, error } = await supabase.functions.invoke('process-idea-with-ai', {
+        body: {
+          idea: idea.trim(),
+          userId: user.id
         }
-      ];
+      });
 
-      const { error: tasksError } = await supabase
-        .from('tasks')
-        .insert(mockTasks);
-
-      if (tasksError) {
-        throw tasksError;
+      if (error) {
+        throw error;
       }
 
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 2000);
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to process idea');
+      }
+
+      setAiResponse(data.aiResponse);
       
       toast({
         title: "✨ Idea transformed!",
-        description: "Your idea has been broken down into actionable tasks. Check the Tasks tab!",
+        description: `Created ${data.tasks.length} tasks from your idea. Check the Tasks tab!`,
       });
+      
       setIdea("");
     } catch (error) {
       console.error('Error processing idea:', error);
@@ -95,6 +75,57 @@ export const IdeaCapture = () => {
     setShowFirstTimeHint(false);
     localStorage.setItem('hasSeenCaptureHint', 'true');
   };
+
+  const TaskPreview = ({ task, index }: { task: any, index: number }) => (
+    <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center space-x-2">
+          <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+            {index + 1}
+          </div>
+          <span className={`text-xs px-2 py-1 rounded-full ${
+            task.priority === 'high' ? 'bg-red-100 text-red-700' :
+            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+            'bg-green-100 text-green-700'
+          }`}>
+            {task.priority}
+          </span>
+        </div>
+        <CheckSquare className="w-4 h-4 text-gray-400" />
+      </div>
+      
+      <div>
+        <h4 className="font-semibold text-gray-900 text-sm">{task.title}</h4>
+        <p className="text-gray-600 text-xs mt-1">{task.description}</p>
+      </div>
+      
+      <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="flex items-center space-x-4">
+          {task.estimated_duration && (
+            <div className="flex items-center space-x-1">
+              <Clock className="w-3 h-3" />
+              <span>{task.estimated_duration}</span>
+            </div>
+          )}
+          {task.suggested_due_date && (
+            <div className="flex items-center space-x-1">
+              <Calendar className="w-3 h-3" />
+              <span>{new Date(task.suggested_due_date).toLocaleDateString()}</span>
+            </div>
+          )}
+        </div>
+        {task.needs_user_input && (
+          <span className="text-orange-600 font-medium">Needs input</span>
+        )}
+      </div>
+      
+      {task.timeline_question && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-2">
+          <p className="text-orange-800 text-xs">{task.timeline_question}</p>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-6 max-w-md mx-auto">
@@ -152,6 +183,39 @@ export const IdeaCapture = () => {
         </div>
       </div>
 
+      {/* AI Response Display */}
+      {aiResponse && (
+        <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-3xl p-6 border border-green-200">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center">
+              <Sparkles className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">AI Analysis Complete</h3>
+              <p className="text-gray-600 text-sm">{aiResponse.message}</p>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <h4 className="font-medium text-gray-900 text-sm mb-3">Generated Tasks:</h4>
+            {aiResponse.tasks.map((task: any, index: number) => (
+              <TaskPreview key={index} task={task} index={index} />
+            ))}
+          </div>
+          
+          {aiResponse.suggestions && aiResponse.suggestions.length > 0 && (
+            <div className="mt-4 bg-white rounded-2xl p-4">
+              <h5 className="font-medium text-gray-900 text-sm mb-2">💡 Suggestions:</h5>
+              <ul className="space-y-1">
+                {aiResponse.suggestions.map((suggestion: string, index: number) => (
+                  <li key={index} className="text-gray-600 text-sm">• {suggestion}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Main capture form */}
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 space-y-6">
@@ -189,6 +253,7 @@ export const IdeaCapture = () => {
               )}
             </div>
 
+            {/* ... keep existing code (AI-Powered Breakdown section) */}
             <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-4 border border-purple-100">
               <div className="flex items-center space-x-3 mb-3">
                 <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
@@ -230,12 +295,7 @@ export const IdeaCapture = () => {
             {isLoading ? (
               <div className="flex items-center space-x-3">
                 <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
-                <span>AI is working...</span>
-              </div>
-            ) : showSuccess ? (
-              <div className="flex items-center space-x-2">
-                <Sparkles className="w-5 h-5" />
-                <span>Transformed!</span>
+                <span>AI is analyzing...</span>
               </div>
             ) : (
               <div className="flex items-center space-x-2">
