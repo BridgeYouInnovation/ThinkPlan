@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Mic } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const IdeaCapture = () => {
   const [idea, setIdea] = useState("");
@@ -17,15 +18,62 @@ export const IdeaCapture = () => {
     
     setIsLoading(true);
     
-    // Simulate AI processing - replace with actual API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      // First, save the idea to the database
+      const { data: ideaData, error: ideaError } = await supabase
+        .from('ideas')
+        .insert({
+          content: idea.trim(),
+          user_id: (await supabase.auth.getUser()).data.user?.id
+        })
+        .select()
+        .single();
+
+      if (ideaError) {
+        throw ideaError;
+      }
+
+      // For now, create some mock tasks (in the future, this will call your AI API)
+      const mockTasks = [
+        {
+          title: `Research phase for: ${idea.substring(0, 30)}...`,
+          description: "Initial research and planning",
+          due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
+          idea_id: ideaData.id,
+          user_id: (await supabase.auth.getUser()).data.user?.id
+        },
+        {
+          title: `First action step for: ${idea.substring(0, 30)}...`,
+          description: "Begin implementation",
+          due_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days
+          idea_id: ideaData.id,
+          user_id: (await supabase.auth.getUser()).data.user?.id
+        }
+      ];
+
+      const { error: tasksError } = await supabase
+        .from('tasks')
+        .insert(mockTasks);
+
+      if (tasksError) {
+        throw tasksError;
+      }
+
       toast({
         title: "Idea processed!",
-        description: "Your idea has been broken down into actionable tasks.",
+        description: "Your idea has been saved and broken down into actionable tasks.",
       });
       setIdea("");
-    }, 2000);
+    } catch (error) {
+      console.error('Error processing idea:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to process your idea. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const startVoiceInput = () => {
@@ -33,7 +81,7 @@ export const IdeaCapture = () => {
     // Placeholder for voice recording implementation
     toast({
       title: "Voice input",
-      description: "Voice recording will be implemented with Supabase integration.",
+      description: "Voice recording will be implemented with OpenAI integration.",
     });
     setTimeout(() => setIsRecording(false), 3000);
   };
@@ -60,7 +108,7 @@ export const IdeaCapture = () => {
             disabled={!idea.trim() || isLoading}
             className="flex-1"
           >
-            {isLoading ? "Processing with AI..." : "Break Down into Tasks"}
+            {isLoading ? "Processing..." : "Break Down into Tasks"}
           </Button>
           
           <Button
