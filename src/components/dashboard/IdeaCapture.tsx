@@ -1,18 +1,17 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Mic, Lightbulb, Sparkles, Zap, ArrowRight, ChevronLeft, Calendar, Info, Brain, CheckSquare, Clock } from "lucide-react";
+import { Mic, MicOff, Lightbulb, Sparkles, Zap, ArrowRight, ChevronLeft, Calendar, Info, Brain, CheckSquare, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { DateConfirmationModal } from "./DateConfirmationModal";
+import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 
 export const IdeaCapture = () => {
   const [idea, setIdea] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [aiResponse, setAiResponse] = useState<any>(null);
   const [showDateModal, setShowDateModal] = useState(false);
   const [pendingTasks, setPendingTasks] = useState<any[]>([]);
@@ -20,6 +19,7 @@ export const IdeaCapture = () => {
     return !localStorage.getItem('hasSeenCaptureHint');
   });
   const { toast } = useToast();
+  const { isRecording, isProcessing, startRecording, stopRecording } = useVoiceRecording();
 
   const handleSubmit = async () => {
     if (!idea.trim()) return;
@@ -119,13 +119,15 @@ export const IdeaCapture = () => {
     }
   };
 
-  const startVoiceInput = () => {
-    setIsRecording(true);
-    toast({
-      title: "🎤 Voice input",
-      description: "Voice recording will be implemented with OpenAI integration.",
-    });
-    setTimeout(() => setIsRecording(false), 3000);
+  const handleVoiceInput = async () => {
+    if (isRecording) {
+      const transcribedText = await stopRecording();
+      if (transcribedText) {
+        setIdea(prev => prev ? `${prev} ${transcribedText}` : transcribedText);
+      }
+    } else {
+      await startRecording();
+    }
   };
 
   const dismissHint = () => {
@@ -284,13 +286,25 @@ export const IdeaCapture = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={startVoiceInput}
-                    disabled={isRecording}
-                    className={`rounded-full p-2 ${isRecording ? 'bg-red-100 text-red-600' : 'hover:bg-gray-100'}`}
+                    onClick={handleVoiceInput}
+                    disabled={isProcessing}
+                    className={`rounded-full p-2 ${
+                      isRecording 
+                        ? 'bg-red-100 text-red-600 animate-pulse' 
+                        : isProcessing 
+                        ? 'bg-blue-100 text-blue-600' 
+                        : 'hover:bg-gray-100'
+                    }`}
                   >
-                    <Mic className={`h-4 w-4 ${isRecording ? 'animate-pulse' : ''}`} />
+                    {isRecording ? (
+                      <MicOff className="h-4 w-4" />
+                    ) : (
+                      <Mic className="h-4 w-4" />
+                    )}
                   </Button>
-                  <span className="text-xs text-gray-400">or type below</span>
+                  <span className="text-xs text-gray-400">
+                    {isRecording ? 'Stop recording' : isProcessing ? 'Processing...' : 'or type below'}
+                  </span>
                 </div>
               </div>
               
@@ -345,7 +359,7 @@ export const IdeaCapture = () => {
           
           <Button
             onClick={handleSubmit}
-            disabled={!idea.trim() || isLoading}
+            disabled={!idea.trim() || isLoading || isRecording || isProcessing}
             className="w-full h-14 text-lg font-medium bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 rounded-2xl shadow-lg"
           >
             {isLoading ? (

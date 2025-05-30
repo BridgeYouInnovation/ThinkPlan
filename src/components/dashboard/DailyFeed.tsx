@@ -1,11 +1,11 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckSquare, Clock, Mic, Plus, ArrowRight, LogOut, MessageCircle, Mail, Phone, Brain, Sparkles } from "lucide-react";
+import { CheckSquare, Clock, Mic, MicOff, Plus, ArrowRight, LogOut, MessageCircle, Mail, Phone, Brain, Sparkles } from "lucide-react";
 import { DateConfirmationModal } from "./DateConfirmationModal";
+import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 
 interface DailyFeedProps {
   onLogout: () => void;
@@ -47,6 +47,7 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
     }
   ]);
   const { toast } = useToast();
+  const { isRecording, isProcessing, startRecording, stopRecording } = useVoiceRecording();
 
   useEffect(() => {
     fetchTodaysTasks();
@@ -224,6 +225,17 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
     }
   };
 
+  const handleVoiceInput = async () => {
+    if (isRecording) {
+      const transcribedText = await stopRecording();
+      if (transcribedText) {
+        setIdea(prev => prev ? `${prev} ${transcribedText}` : transcribedText);
+      }
+    } else {
+      await startRecording();
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-md mx-auto pb-24">
       {/* Header */}
@@ -338,9 +350,21 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
               <Button
                 variant="ghost"
                 size="sm"
-                className="absolute right-3 top-3 text-gray-400 hover:text-purple-600 rounded-full w-8 h-8 p-0"
+                onClick={handleVoiceInput}
+                disabled={isProcessing}
+                className={`absolute right-3 top-3 rounded-full w-8 h-8 p-0 ${
+                  isRecording 
+                    ? 'text-red-600 bg-red-100 animate-pulse' 
+                    : isProcessing 
+                    ? 'text-blue-600 bg-blue-100' 
+                    : 'text-gray-400 hover:text-purple-600'
+                }`}
               >
-                <Mic className="h-4 w-4" />
+                {isRecording ? (
+                  <MicOff className="h-4 w-4" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
               </Button>
             </div>
             
@@ -353,7 +377,7 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
             
             <Button
               onClick={handleSubmit}
-              disabled={!idea.trim() || isLoading}
+              disabled={!idea.trim() || isLoading || isRecording || isProcessing}
               className="w-full h-12 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 rounded-2xl font-medium"
             >
               {isLoading ? (
