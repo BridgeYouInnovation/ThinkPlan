@@ -7,12 +7,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useToast } from "@/hooks/use-toast";
 import { Mic, Lightbulb, Sparkles, Zap, ArrowRight, ChevronLeft, Calendar, Info, Brain, CheckSquare, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { DateConfirmationModal } from "./DateConfirmationModal";
 
 export const IdeaCapture = () => {
   const [idea, setIdea] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [aiResponse, setAiResponse] = useState<any>(null);
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [pendingTasks, setPendingTasks] = useState<any[]>([]);
   const [showFirstTimeHint, setShowFirstTimeHint] = useState(() => {
     return !localStorage.getItem('hasSeenCaptureHint');
   });
@@ -43,6 +46,15 @@ export const IdeaCapture = () => {
         throw new Error(data.error || 'Failed to process idea');
       }
 
+      // Check if we need date confirmation
+      if (data.needsDateConfirmation) {
+        setPendingTasks(data.pendingTasks);
+        setShowDateModal(true);
+        setAiResponse(data.aiResponse);
+        return;
+      }
+
+      // Tasks were created successfully
       setAiResponse(data.aiResponse);
       
       toast({
@@ -57,6 +69,50 @@ export const IdeaCapture = () => {
         variant: "destructive",
         title: "Error",
         description: "Failed to process your idea. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDateConfirmation = async (dateInput: string) => {
+    setIsLoading(true);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase.functions.invoke('process-idea-with-ai', {
+        body: {
+          idea: idea.trim(),
+          userId: user.id,
+          dateConfirmation: dateInput
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to set dates');
+      }
+
+      setShowDateModal(false);
+      setAiResponse(data.aiResponse);
+      
+      toast({
+        title: "🎯 Tasks created!",
+        description: `Created ${data.tasks.length} tasks with your preferred timing. Check the Tasks tab!`,
+      });
+      
+      setIdea("");
+    } catch (error) {
+      console.error('Error setting dates:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to set task dates. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -313,6 +369,15 @@ export const IdeaCapture = () => {
           )}
         </div>
       </div>
+
+      {/* Date Confirmation Modal */}
+      <DateConfirmationModal
+        isOpen={showDateModal}
+        onClose={() => setShowDateModal(false)}
+        onConfirm={handleDateConfirmation}
+        pendingTasks={pendingTasks}
+        isLoading={isLoading}
+      />
     </div>
   );
 };
