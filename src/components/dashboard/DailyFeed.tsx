@@ -137,7 +137,7 @@ export const DailyFeed = ({ onLogout }: DailyFeedProps) => {
                 onChange={(e) => setIdea(e.target.value)}
                 placeholder="What's on your mind?"
                 rows={3}
-                className="w-full border-0 bg-gray-50 rounded-2xl p-4 focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all duration-200 resize-none text-gray-900 placeholder-gray-500"
+                className="w-full border-2 border-gray-200 bg-white rounded-2xl p-4 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 resize-none text-gray-900 placeholder-gray-600 text-base font-medium shadow-sm"
               />
               <Button
                 variant="ghost"
