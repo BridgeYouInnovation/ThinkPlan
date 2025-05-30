@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -129,7 +130,7 @@ export const DailyFeed = ({ onLogout }: DailyFeedProps) => {
       {/* 1. Capture Your Idea */}
       <Card className="idea-capture-glow bg-white border border-gray-100 shadow-sm rounded-3xl overflow-hidden">
         <CardContent className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Capture Your Idea</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Capture Your Idea</h3>
           <div className="space-y-4">
             <div className="relative">
               <textarea
