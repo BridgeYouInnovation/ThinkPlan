@@ -47,6 +47,7 @@ serve(async (req) => {
       const scope = 'https://www.googleapis.com/auth/gmail.readonly';
       const state = userId || '';
       
+      // Add additional OAuth parameters to help with the connection
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${GOOGLE_CLIENT_ID}&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
@@ -54,9 +55,12 @@ serve(async (req) => {
         `response_type=code&` +
         `access_type=offline&` +
         `prompt=consent&` +
+        `include_granted_scopes=true&` +
         `state=${state}`;
 
       console.log('Generated auth URL:', authUrl);
+      console.log('Client ID being used:', GOOGLE_CLIENT_ID);
+      console.log('Redirect URI being used:', redirectUri);
 
       return new Response(JSON.stringify({ authUrl }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
