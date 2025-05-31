@@ -30,13 +30,17 @@ serve(async (req) => {
     
     console.log('Processing action:', action);
 
-    // Handle OAuth callback - no auth required
+    // Handle OAuth callback first - this comes as a GET request from Google
     if (action === 'callback') {
       console.log('Processing OAuth callback from Google');
       return await handleOAuthCallback(url);
     }
 
-    // For all other actions, we need a request body
+    // For all other actions, we expect a POST with JSON body
+    if (req.method !== 'POST') {
+      throw new Error('Invalid request method');
+    }
+
     let body;
     try {
       body = await req.json();
@@ -189,7 +193,6 @@ serve(async (req) => {
 
 // Separate function to handle OAuth callback
 async function handleOAuthCallback(url: URL) {
-  // Handle OAuth callback
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state'); // userId
   const error = url.searchParams.get('error');
