@@ -1,10 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { GmailIntegration } from "./GmailIntegration";
 import { 
   LogOut, 
   User, 
@@ -13,12 +13,10 @@ import {
   Sun, 
   Clock, 
   MessageCircle, 
-  Mail, 
   Shield, 
   Trash2,
   ExternalLink,
-  CheckCircle,
-  AlertCircle
+  CheckCircle
 } from "lucide-react";
 
 interface AccountSettingsProps {
@@ -32,7 +30,6 @@ export const AccountSettings = ({ onLogout }: AccountSettingsProps) => {
   const [dailyReminderTime, setDailyReminderTime] = useState("09:00");
   const [integrations, setIntegrations] = useState({
     whatsapp: false,
-    gmail: false,
     calendar: false
   });
   const { toast } = useToast();
@@ -218,12 +215,15 @@ export const AccountSettings = ({ onLogout }: AccountSettingsProps) => {
         </CardContent>
       </Card>
 
-      {/* Integrations */}
+      {/* Gmail Integration */}
+      <GmailIntegration />
+
+      {/* Other Integrations */}
       <Card className="bg-white border border-gray-100 rounded-3xl">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <ExternalLink className="w-5 h-5 text-purple-600" />
-            Integrations
+            Other Integrations
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -245,28 +245,6 @@ export const AccountSettings = ({ onLogout }: AccountSettingsProps) => {
                 className="rounded-xl"
               >
                 {integrations.whatsapp ? 'Disconnect' : 'Connect'}
-              </Button>
-            </div>
-          </div>
-
-          {/* Gmail */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Mail className="w-5 h-5 text-red-600" />
-              <div>
-                <p className="font-medium text-gray-900">Gmail</p>
-                <p className="text-sm text-gray-500">Scan for urgent emails</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              {integrations.gmail && <CheckCircle className="w-4 h-4 text-green-500" />}
-              <Button 
-                size="sm" 
-                variant={integrations.gmail ? "outline" : "default"}
-                onClick={() => handleIntegrationToggle('gmail')}
-                className="rounded-xl"
-              >
-                {integrations.gmail ? 'Disconnect' : 'Connect'}
               </Button>
             </div>
           </div>
@@ -295,7 +273,7 @@ export const AccountSettings = ({ onLogout }: AccountSettingsProps) => {
         </CardContent>
       </Card>
 
-      {/* Permissions */}
+      {/* Privacy & Permissions */}
       <Card className="bg-white border border-gray-100 rounded-3xl">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -316,7 +294,7 @@ export const AccountSettings = ({ onLogout }: AccountSettingsProps) => {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span className="text-sm text-gray-700">Message content</span>
+                <span className="text-sm text-gray-700">Gmail content</span>
               </div>
               <span className="text-xs text-gray-500">When connected</span>
             </div>
