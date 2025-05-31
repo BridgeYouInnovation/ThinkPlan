@@ -1,7 +1,7 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { supabase } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +13,7 @@ const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
-const supabaseClient = supabase(SUPABASE_URL!, SUPABASE_ANON_KEY!);
+const supabaseClient = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -21,14 +21,13 @@ serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const action = url.searchParams.get('action');
+    const { action, userId } = await req.json();
 
     if (action === 'auth') {
       // Generate OAuth URL
-      const redirectUri = `${url.origin}/supabase/functions/v1/gmail-integration?action=callback`;
+      const redirectUri = `${SUPABASE_URL}/functions/v1/gmail-integration?action=callback`;
       const scope = 'https://www.googleapis.com/auth/gmail.readonly';
-      const state = url.searchParams.get('userId') || '';
+      const state = userId || '';
       
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${GOOGLE_CLIENT_ID}&` +
@@ -46,6 +45,7 @@ serve(async (req) => {
 
     if (action === 'callback') {
       // Handle OAuth callback
+      const url = new URL(req.url);
       const code = url.searchParams.get('code');
       const state = url.searchParams.get('state'); // userId
       
@@ -62,7 +62,7 @@ serve(async (req) => {
           client_secret: GOOGLE_CLIENT_SECRET!,
           code,
           grant_type: 'authorization_code',
-          redirect_uri: `${url.origin}/supabase/functions/v1/gmail-integration?action=callback`,
+          redirect_uri: `${SUPABASE_URL}/functions/v1/gmail-integration?action=callback`,
         }),
       });
 
@@ -72,7 +72,7 @@ serve(async (req) => {
         throw new Error('Failed to get access token');
       }
 
-      // Store tokens in Supabase (you may want to encrypt these)
+      // Store tokens in Supabase
       const { error } = await supabaseClient
         .from('user_integrations')
         .upsert({
