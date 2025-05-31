@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,11 +21,29 @@ export const CalendarIntegration = () => {
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [clientId, setClientId] = useState<string>("");
   const { toast } = useToast();
 
   useEffect(() => {
     checkConnectionStatus();
+    fetchClientId();
   }, []);
+
+  const fetchClientId = async () => {
+    try {
+      // Get the Google Client ID from Supabase secrets via edge function
+      const { data, error } = await supabase.functions.invoke('calendar-oauth', {
+        body: { action: 'get_client_id' }
+      });
+      
+      if (error) throw error;
+      if (data?.client_id) {
+        setClientId(data.client_id);
+      }
+    } catch (error) {
+      console.error('Error fetching client ID:', error);
+    }
+  };
 
   const checkConnectionStatus = async () => {
     try {
@@ -109,11 +126,19 @@ export const CalendarIntegration = () => {
   };
 
   const connectCalendar = async () => {
+    if (!clientId) {
+      toast({
+        variant: "destructive",
+        title: "Configuration error",
+        description: "Google Client ID not configured. Please check your settings.",
+      });
+      return;
+    }
+
     setIsConnecting(true);
     
     try {
       // Google OAuth 2.0 flow
-      const clientId = "YOUR_GOOGLE_CLIENT_ID"; // You'll need to add this
       const redirectUri = `${window.location.origin}/auth/callback`;
       const scope = "https://www.googleapis.com/auth/calendar.readonly";
       
@@ -256,7 +281,7 @@ export const CalendarIntegration = () => {
             size="sm" 
             variant={isConnected ? "outline" : "default"}
             onClick={isConnected ? disconnectCalendar : connectCalendar}
-            disabled={isConnecting}
+            disabled={isConnecting || !clientId}
             className="rounded-xl"
           >
             {isConnecting ? (

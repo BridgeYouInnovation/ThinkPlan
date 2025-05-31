@@ -12,8 +12,31 @@ serve(async (req) => {
   }
 
   try {
-    const { code } = await req.json()
+    const { code, action } = await req.json()
 
+    // Handle client ID request
+    if (action === 'get_client_id') {
+      const clientId = Deno.env.get('GOOGLE_CLIENT_ID')
+      
+      if (!clientId) {
+        return new Response(
+          JSON.stringify({ error: 'Google Client ID not configured' }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        )
+      }
+
+      return new Response(
+        JSON.stringify({ client_id: clientId }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    // Handle token exchange
     if (!code) {
       return new Response(
         JSON.stringify({ error: 'Authorization code is required' }),

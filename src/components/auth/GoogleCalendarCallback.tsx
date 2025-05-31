@@ -26,20 +26,14 @@ export const GoogleCalendarCallback = () => {
 
       if (code) {
         try {
-          // Exchange code for access token
-          const response = await fetch('/api/calendar/exchange-token', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ code }),
+          // Exchange code for access token using our Supabase edge function
+          const { data, error } = await supabase.functions.invoke('calendar-oauth', {
+            body: { code }
           });
 
-          if (!response.ok) {
-            throw new Error('Failed to exchange token');
-          }
+          if (error) throw error;
 
-          const tokenData = await response.json();
+          const tokenData = data;
           
           // Store the token in Supabase
           const { data: { user } } = await supabase.auth.getUser();
