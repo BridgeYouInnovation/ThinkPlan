@@ -40,8 +40,8 @@ serve(async (req) => {
     }
 
     if (action === 'auth') {
-      // Generate OAuth URL
-      const redirectUri = `${url.origin}${url.pathname}?action=callback`;
+      // Generate OAuth URL with correct Supabase function URL
+      const redirectUri = `${SUPABASE_URL}/functions/v1/gmail-integration?action=callback`;
       console.log('Redirect URI:', redirectUri);
       
       const scope = 'https://www.googleapis.com/auth/gmail.readonly';
@@ -84,8 +84,8 @@ serve(async (req) => {
         throw new Error('Missing authorization code or user ID');
       }
 
-      // Exchange code for tokens
-      const redirectUri = `${url.origin}${url.pathname}?action=callback`;
+      // Exchange code for tokens using the same redirect URI
+      const redirectUri = `${SUPABASE_URL}/functions/v1/gmail-integration?action=callback`;
       console.log('Token exchange redirect URI:', redirectUri);
       
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
