@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +35,31 @@ export const GmailIntegration = () => {
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
+
+    // Listen for messages from popup window
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data.type === 'GMAIL_AUTH_SUCCESS') {
+        toast({
+          title: "Gmail Connected!",
+          description: "Your Gmail account has been successfully connected.",
+        });
+        setIsConnected(true);
+        setIsConnecting(false);
+        checkGmailConnection();
+      } else if (event.data.type === 'GMAIL_AUTH_ERROR') {
+        toast({
+          variant: "destructive",
+          title: "Connection failed",
+          description: event.data.error || "Failed to connect Gmail",
+        });
+        setIsConnecting(false);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   const checkGmailConnection = async () => {
@@ -78,7 +102,22 @@ export const GmailIntegration = () => {
       }
 
       if (data?.authUrl) {
-        window.location.href = data.authUrl;
+        // Open in popup window instead of redirecting
+        const popup = window.open(
+          data.authUrl,
+          'gmail-auth',
+          'width=500,height=600,scrollbars=yes,resizable=yes'
+        );
+
+        // Poll for popup closure
+        const pollTimer = setInterval(() => {
+          if (popup?.closed) {
+            clearInterval(pollTimer);
+            setIsConnecting(false);
+            // Check if connection was successful
+            setTimeout(checkGmailConnection, 1000);
+          }
+        }, 1000);
       }
     } catch (error) {
       console.error('Error connecting Gmail:', error);
@@ -87,7 +126,6 @@ export const GmailIntegration = () => {
         title: "Connection failed",
         description: "Failed to connect Gmail. Please try again.",
       });
-    } finally {
       setIsConnecting(false);
     }
   };

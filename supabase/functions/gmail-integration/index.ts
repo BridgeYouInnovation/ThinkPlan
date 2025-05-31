@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -77,15 +76,47 @@ serve(async (req) => {
       
       if (error) {
         console.error('OAuth error:', error);
-        return new Response(`OAuth error: ${error}`, {
-          status: 400,
-          headers: corsHeaders
+        // Return HTML that closes the popup and sends error message to parent
+        return new Response(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>Gmail Auth Error</title></head>
+          <body>
+            <script>
+              window.opener?.postMessage({
+                type: 'GMAIL_AUTH_ERROR',
+                error: '${error}'
+              }, window.location.origin);
+              window.close();
+            </script>
+            <p>Authentication failed. This window will close automatically.</p>
+          </body>
+          </html>
+        `, {
+          headers: { ...corsHeaders, 'Content-Type': 'text/html' }
         });
       }
       
       if (!code || !state) {
         console.error('Missing code or state - code:', !!code, 'state:', state);
-        throw new Error('Missing authorization code or user ID');
+        return new Response(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>Gmail Auth Error</title></head>
+          <body>
+            <script>
+              window.opener?.postMessage({
+                type: 'GMAIL_AUTH_ERROR',
+                error: 'Missing authorization code or user ID'
+              }, window.location.origin);
+              window.close();
+            </script>
+            <p>Authentication failed. This window will close automatically.</p>
+          </body>
+          </html>
+        `, {
+          headers: { ...corsHeaders, 'Content-Type': 'text/html' }
+        });
       }
 
       // Exchange code for tokens using the same redirect URI
@@ -109,7 +140,24 @@ serve(async (req) => {
       
       if (!tokens.access_token) {
         console.error('Token response:', tokens);
-        throw new Error('Failed to get access token: ' + JSON.stringify(tokens));
+        return new Response(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>Gmail Auth Error</title></head>
+          <body>
+            <script>
+              window.opener?.postMessage({
+                type: 'GMAIL_AUTH_ERROR',
+                error: 'Failed to get access token'
+              }, window.location.origin);
+              window.close();
+            </script>
+            <p>Authentication failed. This window will close automatically.</p>
+          </body>
+          </html>
+        `, {
+          headers: { ...corsHeaders, 'Content-Type': 'text/html' }
+        });
       }
 
       // Store tokens in Supabase
@@ -126,18 +174,45 @@ serve(async (req) => {
 
       if (dbError) {
         console.error('Error storing tokens:', dbError);
-        throw new Error('Failed to store authentication tokens');
+        return new Response(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>Gmail Auth Error</title></head>
+          <body>
+            <script>
+              window.opener?.postMessage({
+                type: 'GMAIL_AUTH_ERROR',
+                error: 'Failed to store authentication tokens'
+              }, window.location.origin);
+              window.close();
+            </script>
+            <p>Authentication failed. This window will close automatically.</p>
+          </body>
+          </html>
+        `, {
+          headers: { ...corsHeaders, 'Content-Type': 'text/html' }
+        });
       }
 
       console.log('Successfully stored tokens for user:', state);
 
-      // Redirect back to app
-      return new Response(null, {
-        status: 302,
-        headers: {
-          ...corsHeaders,
-          'Location': 'https://759c9db5-ec83-42a9-bee0-7ff61ad201af.lovableproject.com/?gmail=connected'
-        }
+      // Return HTML that closes the popup and sends success message to parent
+      return new Response(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Gmail Connected</title></head>
+        <body>
+          <script>
+            window.opener?.postMessage({
+              type: 'GMAIL_AUTH_SUCCESS'
+            }, window.location.origin);
+            window.close();
+          </script>
+          <p>Gmail connected successfully! This window will close automatically.</p>
+        </body>
+        </html>
+      `, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/html' }
       });
     }
 
