@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
 import { EditTaskModal } from "./EditTaskModal";
+import { NotificationSettings } from "./NotificationSettings";
 
 type Task = Tables<'tasks'>;
 
@@ -352,6 +353,9 @@ export const TaskList = () => {
           </div>
         </div>
       )}
+
+      {/* Notification Settings */}
+      <NotificationSettings />
 
       {/* Header */}
       <div className="bg-gradient-to-br from-purple-600 via-purple-700 to-blue-600 rounded-3xl p-6 text-white shadow-xl">

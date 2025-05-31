@@ -84,6 +84,36 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           created_at: string
@@ -93,6 +123,7 @@ export type Database = {
           id: string
           idea_id: string | null
           needs_user_input: boolean | null
+          notification_sent: boolean | null
           priority: string | null
           status: Database["public"]["Enums"]["task_status"]
           timeline_question: string | null
@@ -108,6 +139,7 @@ export type Database = {
           id?: string
           idea_id?: string | null
           needs_user_input?: boolean | null
+          notification_sent?: boolean | null
           priority?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           timeline_question?: string | null
@@ -123,6 +155,7 @@ export type Database = {
           id?: string
           idea_id?: string | null
           needs_user_input?: boolean | null
+          notification_sent?: boolean | null
           priority?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           timeline_question?: string | null
