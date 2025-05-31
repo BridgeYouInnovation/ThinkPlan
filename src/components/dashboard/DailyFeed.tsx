@@ -25,10 +25,10 @@ interface DailyFeedProps {
 
 interface ImportantMessage {
   id: string;
-  source: string;
+  source: string | null;
   content: string;
-  processed_at: string;
-  ai_reply?: string;
+  created_at: string;
+  ai_reply?: string | null;
   is_flagged: boolean;
 }
 
@@ -47,11 +47,11 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
       if (!user) return;
 
       const { data, error } = await supabase
-        .from('processed_messages')
+        .from('messages')
         .select('*')
         .eq('user_id', user.id)
         .eq('is_flagged', true)
-        .order('processed_at', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(5);
 
       if (error) {
@@ -70,7 +70,7 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
   const markAsRead = async (messageId: string) => {
     try {
       const { error } = await supabase
-        .from('processed_messages')
+        .from('messages')
         .update({ is_flagged: false })
         .eq('id', messageId);
 
@@ -100,7 +100,9 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
     return date.toLocaleDateString();
   };
 
-  const getSourceIcon = (source: string) => {
+  const getSourceIcon = (source: string | null) => {
+    if (!source) return <MessageSquare className="w-4 h-4 text-gray-600" />;
+    
     switch (source.toLowerCase()) {
       case 'gmail':
         return <Mail className="w-4 h-4 text-red-600" />;
@@ -152,10 +154,10 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
                     <div className="flex items-center space-x-2">
                       {getSourceIcon(message.source)}
                       <span className="text-sm font-medium text-gray-700 capitalize">
-                        {message.source}
+                        {message.source || 'Message'}
                       </span>
                       <span className="text-xs text-gray-500">
-                        {formatMessageTime(message.processed_at)}
+                        {formatMessageTime(message.created_at)}
                       </span>
                     </div>
                     <Button
