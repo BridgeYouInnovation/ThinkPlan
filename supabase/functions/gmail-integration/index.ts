@@ -16,7 +16,6 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 // Use service role key for database operations that don't require user auth
 const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
-const supabaseClient = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
 
 serve(async (req) => {
   console.log(`Received ${req.method} request to ${req.url}`);
@@ -80,17 +79,25 @@ serve(async (req) => {
         return new Response(`
           <!DOCTYPE html>
           <html>
-          <head><title>Gmail Auth Error</title></head>
-          <body>
+          <head>
+            <title>Gmail Auth Error</title>
             <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'GMAIL_AUTH_ERROR',
-                  error: '${error}'
-                }, window.location.origin);
-              }
-              window.close();
+              window.addEventListener('load', function() {
+                try {
+                  if (window.opener && !window.opener.closed) {
+                    window.opener.postMessage({
+                      type: 'GMAIL_AUTH_ERROR',
+                      error: '${error}'
+                    }, '*');
+                  }
+                } catch (e) {
+                  console.error('Error posting message:', e);
+                }
+                setTimeout(() => window.close(), 1000);
+              });
             </script>
+          </head>
+          <body>
             <p>Authentication failed. This window will close automatically.</p>
           </body>
           </html>
@@ -104,17 +111,25 @@ serve(async (req) => {
         return new Response(`
           <!DOCTYPE html>
           <html>
-          <head><title>Gmail Auth Error</title></head>
-          <body>
+          <head>
+            <title>Gmail Auth Error</title>
             <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'GMAIL_AUTH_ERROR',
-                  error: 'Missing authorization code or user ID'
-                }, window.location.origin);
-              }
-              window.close();
+              window.addEventListener('load', function() {
+                try {
+                  if (window.opener && !window.opener.closed) {
+                    window.opener.postMessage({
+                      type: 'GMAIL_AUTH_ERROR',
+                      error: 'Missing authorization code or user ID'
+                    }, '*');
+                  }
+                } catch (e) {
+                  console.error('Error posting message:', e);
+                }
+                setTimeout(() => window.close(), 1000);
+              });
             </script>
+          </head>
+          <body>
             <p>Authentication failed. This window will close automatically.</p>
           </body>
           </html>
@@ -147,17 +162,25 @@ serve(async (req) => {
         return new Response(`
           <!DOCTYPE html>
           <html>
-          <head><title>Gmail Auth Error</title></head>
-          <body>
+          <head>
+            <title>Gmail Auth Error</title>
             <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'GMAIL_AUTH_ERROR',
-                  error: 'Failed to get access token'
-                }, window.location.origin);
-              }
-              window.close();
+              window.addEventListener('load', function() {
+                try {
+                  if (window.opener && !window.opener.closed) {
+                    window.opener.postMessage({
+                      type: 'GMAIL_AUTH_ERROR',
+                      error: 'Failed to get access token'
+                    }, '*');
+                  }
+                } catch (e) {
+                  console.error('Error posting message:', e);
+                }
+                setTimeout(() => window.close(), 1000);
+              });
             </script>
+          </head>
+          <body>
             <p>Authentication failed. This window will close automatically.</p>
           </body>
           </html>
@@ -183,17 +206,25 @@ serve(async (req) => {
         return new Response(`
           <!DOCTYPE html>
           <html>
-          <head><title>Gmail Auth Error</title></head>
-          <body>
+          <head>
+            <title>Gmail Auth Error</title>
             <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'GMAIL_AUTH_ERROR',
-                  error: 'Failed to store authentication tokens'
-                }, window.location.origin);
-              }
-              window.close();
+              window.addEventListener('load', function() {
+                try {
+                  if (window.opener && !window.opener.closed) {
+                    window.opener.postMessage({
+                      type: 'GMAIL_AUTH_ERROR',
+                      error: 'Failed to store authentication tokens'
+                    }, '*');
+                  }
+                } catch (e) {
+                  console.error('Error posting message:', e);
+                }
+                setTimeout(() => window.close(), 1000);
+              });
             </script>
+          </head>
+          <body>
             <p>Authentication failed. This window will close automatically.</p>
           </body>
           </html>
@@ -208,16 +239,24 @@ serve(async (req) => {
       return new Response(`
         <!DOCTYPE html>
         <html>
-        <head><title>Gmail Connected</title></head>
-        <body>
+        <head>
+          <title>Gmail Connected</title>
           <script>
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'GMAIL_AUTH_SUCCESS'
-              }, window.location.origin);
-            }
-            window.close();
+            window.addEventListener('load', function() {
+              try {
+                if (window.opener && !window.opener.closed) {
+                  window.opener.postMessage({
+                    type: 'GMAIL_AUTH_SUCCESS'
+                  }, '*');
+                }
+              } catch (e) {
+                console.error('Error posting message:', e);
+              }
+              setTimeout(() => window.close(), 1000);
+            });
           </script>
+        </head>
+        <body>
           <p>Gmail connected successfully! This window will close automatically.</p>
         </body>
         </html>

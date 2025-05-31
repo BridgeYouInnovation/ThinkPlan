@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,9 +27,11 @@ export const GmailIntegration = () => {
 
     // Listen for messages from popup window
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
+      // Accept messages from any origin for the popup
+      console.log('Received message:', event.data);
       
       if (event.data.type === 'GMAIL_AUTH_SUCCESS') {
+        console.log('Gmail auth success received');
         toast({
           title: "Gmail Connected!",
           description: "Your Gmail account has been successfully connected.",
@@ -39,6 +40,7 @@ export const GmailIntegration = () => {
         setIsConnecting(false);
         checkGmailConnection();
       } else if (event.data.type === 'GMAIL_AUTH_ERROR') {
+        console.log('Gmail auth error received:', event.data.error);
         toast({
           variant: "destructive",
           title: "Connection failed",
@@ -93,30 +95,58 @@ export const GmailIntegration = () => {
       }
 
       if (data?.authUrl) {
-        // Open in popup window
+        console.log('Opening popup with URL:', data.authUrl);
+        // Open in popup window with specific dimensions and features
         const popup = window.open(
           data.authUrl,
           'gmail-auth',
-          'width=500,height=600,scrollbars=yes,resizable=yes'
+          'width=500,height=600,scrollbars=yes,resizable=yes,status=yes,location=yes'
         );
+
+        if (!popup) {
+          toast({
+            variant: "destructive",
+            title: "Popup blocked",
+            description: "Please allow popups for this site and try again",
+          });
+          setIsConnecting(false);
+          return;
+        }
 
         // Poll for popup closure
         const pollTimer = setInterval(() => {
-          if (popup?.closed) {
+          if (popup.closed) {
             clearInterval(pollTimer);
-            setIsConnecting(false);
-            // Check if connection was successful
-            setTimeout(checkGmailConnection, 1000);
+            console.log('Popup was closed');
+            // Don't automatically set connecting to false here
+            // Let the message handler deal with success/failure
+            setTimeout(() => {
+              if (isConnecting) {
+                setIsConnecting(false);
+                toast({
+                  variant: "destructive",
+                  title: "Connection cancelled",
+                  description: "Gmail connection was cancelled",
+                });
+              }
+            }, 2000);
           }
         }, 1000);
 
         // Set a timeout to stop polling after 5 minutes
         setTimeout(() => {
           clearInterval(pollTimer);
-          if (!popup?.closed) {
-            popup?.close();
+          if (!popup.closed) {
+            popup.close();
           }
-          setIsConnecting(false);
+          if (isConnecting) {
+            setIsConnecting(false);
+            toast({
+              variant: "destructive",
+              title: "Connection timeout",
+              description: "Gmail connection timed out",
+            });
+          }
         }, 300000);
       }
     } catch (error) {
