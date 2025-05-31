@@ -3,10 +3,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckSquare, Clock, Mic, MicOff, Plus, ArrowRight, LogOut, MessageCircle, Mail, Phone, Brain, Sparkles } from "lucide-react";
+import { CheckSquare, Clock, Mic, MicOff, Plus, ArrowRight, LogOut, MessageCircle, Mail, Phone, Brain, Sparkles, Settings } from "lucide-react";
 import { DateConfirmationModal } from "./DateConfirmationModal";
 import { VoiceRecordingIndicator } from "./VoiceRecordingIndicator";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
+import type { Tables } from "@/integrations/supabase/types";
+
+type Message = Tables<'messages'>;
 
 interface DailyFeedProps {
   onLogout: () => void;
@@ -21,39 +24,39 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
   const [aiResponse, setAiResponse] = useState<any>(null);
   const [showDateModal, setShowDateModal] = useState(false);
   const [pendingTasks, setPendingTasks] = useState<any[]>([]);
-  const [importantMessages, setImportantMessages] = useState([
-    {
-      id: 1,
-      type: 'whatsapp',
-      sender: 'Sarah Johnson',
-      preview: 'Hey! Can we reschedule our meeting tomorrow? Something urgent came up...',
-      time: '2 min ago',
-      priority: 'high'
-    },
-    {
-      id: 2,
-      type: 'email',
-      sender: 'Project Manager',
-      preview: 'The client wants to discuss the new features we proposed. Please review...',
-      time: '15 min ago',
-      priority: 'medium'
-    },
-    {
-      id: 3,
-      type: 'whatsapp',
-      sender: 'Mom',
-      preview: 'Don\'t forget dinner on Sunday! Let me know if you can make it.',
-      time: '1 hour ago',
-      priority: 'low'
-    }
-  ]);
+  const [importantMessages, setImportantMessages] = useState<Message[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const { toast } = useToast();
   const { isRecording, isProcessing, startRecording, stopRecording } = useVoiceRecording();
 
   useEffect(() => {
     fetchTodaysTasks();
+    fetchImportantMessages();
     setShowFAB(false);
   }, []);
+
+  const fetchImportantMessages = async () => {
+    try {
+      setIsLoadingMessages(true);
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('is_flagged', true)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (error) {
+        console.error('Error fetching messages:', error);
+        return;
+      }
+
+      setImportantMessages(data || []);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
 
   const fetchTodaysTasks = async () => {
     try {
@@ -205,6 +208,7 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
       case 'whatsapp':
         return <MessageCircle className="w-4 h-4 text-green-500" />;
       case 'email':
+      case 'gmail':
         return <Mail className="w-4 h-4 text-blue-500" />;
       case 'phone':
         return <Phone className="w-4 h-4 text-purple-500" />;
@@ -223,6 +227,46 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
         return 'border-l-green-400 bg-green-50';
       default:
         return 'border-l-gray-400 bg-gray-50';
+    }
+  };
+
+  const getTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const messageDate = new Date(dateString);
+    const diffInMinutes = Math.floor((now.getTime() - messageDate.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays}d ago`;
+  };
+
+  const markMessageAsRead = async (messageId: string) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ is_flagged: false })
+        .eq('id', messageId);
+
+      if (error) {
+        console.error('Error marking message as read:', error);
+        return;
+      }
+
+      setImportantMessages(messages => 
+        messages.filter(msg => msg.id !== messageId)
+      );
+
+      toast({
+        title: "Message marked as read",
+        description: "Message has been removed from important messages",
+      });
+    } catch (error) {
+      console.error('Error marking message as read:', error);
     }
   };
 
@@ -494,32 +538,78 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
           </Button>
         </div>
         
-        <div className="space-y-3">
-          {importantMessages.map((message) => (
-            <Card key={message.id} className={`border-l-4 rounded-2xl hover:shadow-md transition-shadow ${getPriorityColor(message.priority)}`}>
-              <CardContent className="p-4">
-                <div className="flex items-start space-x-3">
-                  {getMessageIcon(message.type)}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="font-medium text-gray-900 text-sm truncate">{message.sender}</p>
-                      <span className="text-xs text-gray-500">{message.time}</span>
+        {isLoadingMessages ? (
+          <Card className="bg-gray-50 border border-gray-100 rounded-2xl">
+            <CardContent className="p-6 text-center">
+              <div className="w-6 h-6 mx-auto mb-2 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-gray-500 text-sm">Loading messages...</p>
+            </CardContent>
+          </Card>
+        ) : importantMessages.length === 0 ? (
+          <Card className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-200 rounded-2xl">
+            <CardContent className="p-6 text-center space-y-4">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+                <MessageCircle className="h-8 w-8 text-blue-500" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-2">No important messages</h4>
+                <p className="text-gray-600 text-sm mb-4">Connect your accounts to automatically detect important messages that need your attention.</p>
+              </div>
+              <div className="space-y-2">
+                <Button 
+                  onClick={() => onNavigateToTab && onNavigateToTab('account')}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-2xl"
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Connect Accounts
+                </Button>
+                <p className="text-xs text-gray-500">Connect Gmail, WhatsApp, and more</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {importantMessages.map((message) => (
+              <Card key={message.id} className={`border-l-4 rounded-2xl hover:shadow-md transition-shadow border-l-orange-400 bg-orange-50`}>
+                <CardContent className="p-4">
+                  <div className="flex items-start space-x-3">
+                    {getMessageIcon(message.source || 'unknown')}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="font-medium text-gray-900 text-sm">
+                          {message.source ? message.source.charAt(0).toUpperCase() + message.source.slice(1) : 'Message'}
+                        </p>
+                        <span className="text-xs text-gray-500">{getTimeAgo(message.created_at)}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 line-clamp-2 mb-2">{message.content}</p>
+                      {message.ai_reply && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-2">
+                          <p className="text-xs text-blue-800 font-medium mb-1">AI Suggested Reply:</p>
+                          <p className="text-xs text-blue-700">{message.ai_reply}</p>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-600 line-clamp-2">{message.preview}</p>
                   </div>
-                </div>
-                <div className="mt-3 flex space-x-2">
-                  <Button size="sm" variant="outline" className="text-xs rounded-full">
-                    Quick Reply
-                  </Button>
-                  <Button size="sm" variant="ghost" className="text-xs rounded-full">
-                    Mark Read
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  <div className="mt-3 flex space-x-2">
+                    {message.ai_reply && (
+                      <Button size="sm" variant="outline" className="text-xs rounded-full">
+                        Use Reply
+                      </Button>
+                    )}
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => markMessageAsRead(message.id)}
+                      className="text-xs rounded-full"
+                    >
+                      Mark Read
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Floating Action Button */}
