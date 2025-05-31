@@ -16,6 +16,8 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 const supabaseClient = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
 
 serve(async (req) => {
+  console.log(`Received ${req.method} request to ${req.url}`);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -28,16 +30,20 @@ serve(async (req) => {
     // Handle GET requests (OAuth callback)
     if (req.method === 'GET') {
       action = url.searchParams.get('action');
+      console.log('GET request with action:', action);
     } else {
       // Handle POST requests (auth initiation and fetch emails)
       const body = await req.json();
       action = body.action;
       userId = body.userId;
+      console.log('POST request with action:', action, 'userId:', userId);
     }
 
     if (action === 'auth') {
       // Generate OAuth URL
-      const redirectUri = `${SUPABASE_URL}/functions/v1/gmail-integration?action=callback`;
+      const redirectUri = `${url.origin}${url.pathname}?action=callback`;
+      console.log('Redirect URI:', redirectUri);
+      
       const scope = 'https://www.googleapis.com/auth/gmail.readonly';
       const state = userId || '';
       
@@ -50,6 +56,8 @@ serve(async (req) => {
         `prompt=consent&` +
         `state=${state}`;
 
+      console.log('Generated auth URL:', authUrl);
+
       return new Response(JSON.stringify({ authUrl }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -59,12 +67,27 @@ serve(async (req) => {
       // Handle OAuth callback
       const code = url.searchParams.get('code');
       const state = url.searchParams.get('state'); // userId
+      const error = url.searchParams.get('error');
+      
+      console.log('OAuth callback - code:', !!code, 'state:', state, 'error:', error);
+      
+      if (error) {
+        console.error('OAuth error:', error);
+        return new Response(`OAuth error: ${error}`, {
+          status: 400,
+          headers: corsHeaders
+        });
+      }
       
       if (!code || !state) {
+        console.error('Missing code or state - code:', !!code, 'state:', state);
         throw new Error('Missing authorization code or user ID');
       }
 
       // Exchange code for tokens
+      const redirectUri = `${url.origin}${url.pathname}?action=callback`;
+      console.log('Token exchange redirect URI:', redirectUri);
+      
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -73,18 +96,20 @@ serve(async (req) => {
           client_secret: GOOGLE_CLIENT_SECRET!,
           code,
           grant_type: 'authorization_code',
-          redirect_uri: `${SUPABASE_URL}/functions/v1/gmail-integration?action=callback`,
+          redirect_uri: redirectUri,
         }),
       });
 
       const tokens = await tokenResponse.json();
+      console.log('Token response status:', tokenResponse.status);
       
       if (!tokens.access_token) {
-        throw new Error('Failed to get access token');
+        console.error('Token response:', tokens);
+        throw new Error('Failed to get access token: ' + JSON.stringify(tokens));
       }
 
       // Store tokens in Supabase
-      const { error } = await supabaseClient
+      const { error: dbError } = await supabaseClient
         .from('user_integrations')
         .upsert({
           user_id: state,
@@ -95,10 +120,12 @@ serve(async (req) => {
           updated_at: new Date().toISOString()
         });
 
-      if (error) {
-        console.error('Error storing tokens:', error);
+      if (dbError) {
+        console.error('Error storing tokens:', dbError);
         throw new Error('Failed to store authentication tokens');
       }
+
+      console.log('Successfully stored tokens for user:', state);
 
       // Redirect back to app
       return new Response(null, {
@@ -120,6 +147,7 @@ serve(async (req) => {
         .single();
 
       if (error || !integration) {
+        console.error('No Gmail integration found for user:', userId, error);
         throw new Error('Gmail not connected');
       }
 
