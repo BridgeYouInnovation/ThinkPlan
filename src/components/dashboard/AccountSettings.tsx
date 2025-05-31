@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { GmailIntegration } from "./GmailIntegration";
+import { CalendarIntegration } from "./CalendarIntegration";
 import { 
   LogOut, 
   User, 
@@ -12,11 +14,9 @@ import {
   Moon, 
   Sun, 
   Clock, 
-  MessageCircle, 
   Shield, 
   Trash2,
-  ExternalLink,
-  CheckCircle
+  ExternalLink
 } from "lucide-react";
 
 interface AccountSettingsProps {
@@ -28,10 +28,6 @@ export const AccountSettings = ({ onLogout }: AccountSettingsProps) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [dailyReminderTime, setDailyReminderTime] = useState("09:00");
-  const [integrations, setIntegrations] = useState({
-    whatsapp: false,
-    calendar: false
-  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -89,20 +85,6 @@ export const AccountSettings = ({ onLogout }: AccountSettingsProps) => {
     toast({
       title: "Reminder time updated",
       description: `Daily reminder set for ${newTime}`,
-    });
-  };
-
-  const handleIntegrationToggle = (platform: string) => {
-    // In a real app, this would handle OAuth flows
-    const newState = !integrations[platform as keyof typeof integrations];
-    setIntegrations(prev => ({
-      ...prev,
-      [platform]: newState
-    }));
-    
-    toast({
-      title: `${platform} integration`,
-      description: `${newState ? 'Connected' : 'Disconnected'} successfully`,
     });
   };
 
@@ -218,60 +200,8 @@ export const AccountSettings = ({ onLogout }: AccountSettingsProps) => {
       {/* Gmail Integration */}
       <GmailIntegration />
 
-      {/* Other Integrations */}
-      <Card className="bg-white border border-gray-100 rounded-3xl">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <ExternalLink className="w-5 h-5 text-purple-600" />
-            Other Integrations
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* WhatsApp */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <MessageCircle className="w-5 h-5 text-green-600" />
-              <div>
-                <p className="font-medium text-gray-900">WhatsApp</p>
-                <p className="text-sm text-gray-500">Read important messages</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              {integrations.whatsapp && <CheckCircle className="w-4 h-4 text-green-500" />}
-              <Button 
-                size="sm" 
-                variant={integrations.whatsapp ? "outline" : "default"}
-                onClick={() => handleIntegrationToggle('whatsapp')}
-                className="rounded-xl"
-              >
-                {integrations.whatsapp ? 'Disconnect' : 'Connect'}
-              </Button>
-            </div>
-          </div>
-
-          {/* Calendar */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Clock className="w-5 h-5 text-blue-600" />
-              <div>
-                <p className="font-medium text-gray-900">Calendar</p>
-                <p className="text-sm text-gray-500">Sync meetings and events</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              {integrations.calendar && <CheckCircle className="w-4 h-4 text-green-500" />}
-              <Button 
-                size="sm" 
-                variant={integrations.calendar ? "outline" : "default"}
-                onClick={() => handleIntegrationToggle('calendar')}
-                className="rounded-xl"
-              >
-                {integrations.calendar ? 'Disconnect' : 'Connect'}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Calendar Integration */}
+      <CalendarIntegration />
 
       {/* Privacy & Permissions */}
       <Card className="bg-white border border-gray-100 rounded-3xl">
