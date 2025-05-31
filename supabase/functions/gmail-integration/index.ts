@@ -14,7 +14,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-// Use service role key for database operations that don't require user auth
+// Use service role key for all database operations
 const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
 serve(async (req) => {
@@ -156,9 +156,10 @@ serve(async (req) => {
 
       const tokens = await tokenResponse.json();
       console.log('Token response status:', tokenResponse.status);
+      console.log('Token response:', tokens);
       
       if (!tokens.access_token) {
-        console.error('Token response:', tokens);
+        console.error('Failed to get access token:', tokens);
         return new Response(`
           <!DOCTYPE html>
           <html>
@@ -190,6 +191,7 @@ serve(async (req) => {
       }
 
       // Store tokens in Supabase using admin client
+      console.log('Storing tokens for user:', state);
       const { error: dbError } = await supabaseAdmin
         .from('user_integrations')
         .upsert({
@@ -266,16 +268,36 @@ serve(async (req) => {
     }
 
     if (action === 'fetch-emails') {
-      // Get stored tokens using admin client (since this requires user auth)
+      // For this action, we need user authentication, so create a client with the auth header
+      const authHeader = req.headers.get('authorization');
+      if (!authHeader) {
+        throw new Error('Missing authorization header for fetch-emails');
+      }
+
+      const supabaseWithAuth = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+        global: {
+          headers: {
+            authorization: authHeader,
+          },
+        },
+      });
+
+      // Get current user
+      const { data: { user }, error: userError } = await supabaseWithAuth.auth.getUser();
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get stored tokens using admin client (since we need to access the tokens)
       const { data: integration, error } = await supabaseAdmin
         .from('user_integrations')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', user.id)
         .eq('service', 'gmail')
         .single();
 
       if (error || !integration) {
-        console.error('No Gmail integration found for user:', userId, error);
+        console.error('No Gmail integration found for user:', user.id, error);
         throw new Error('Gmail not connected');
       }
 
