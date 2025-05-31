@@ -26,28 +26,31 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    let action: string | null;
-    let userId: string | null = null;
+    const action = url.searchParams.get('action');
+    
+    console.log('Processing action:', action);
 
-    // Handle GET requests (OAuth callback) - these come directly from Google, no auth header
-    if (req.method === 'GET') {
-      action = url.searchParams.get('action');
-      console.log('GET request with action:', action);
-      
-      // OAuth callback doesn't have auth header - this is expected
-      if (action === 'callback') {
-        console.log('Processing OAuth callback from Google');
-        return await handleOAuthCallback(url);
-      }
-    } else {
-      // Handle POST requests (auth initiation and fetch emails)
-      const body = await req.json();
-      action = body.action;
-      userId = body.userId;
-      console.log('POST request with action:', action, 'userId:', userId);
+    // Handle OAuth callback - no auth required
+    if (action === 'callback') {
+      console.log('Processing OAuth callback from Google');
+      return await handleOAuthCallback(url);
     }
 
-    if (action === 'auth') {
+    // For all other actions, we need a request body
+    let body;
+    try {
+      body = await req.json();
+    } catch (error) {
+      console.error('Error parsing request body:', error);
+      throw new Error('Invalid request body');
+    }
+
+    const requestAction = body.action;
+    const userId = body.userId;
+    
+    console.log('Request action:', requestAction, 'userId:', userId);
+
+    if (requestAction === 'auth') {
       // Generate OAuth URL with correct Supabase function URL
       const redirectUri = `${SUPABASE_URL}/functions/v1/gmail-integration?action=callback`;
       console.log('Redirect URI:', redirectUri);
@@ -72,10 +75,11 @@ serve(async (req) => {
       });
     }
 
-    if (action === 'fetch-emails') {
-      // For this action, we need user authentication, so create a client with the auth header
+    if (requestAction === 'fetch-emails') {
+      // For this action, we need user authentication
       const authHeader = req.headers.get('authorization');
       if (!authHeader) {
+        console.error('Missing authorization header for fetch-emails');
         throw new Error('Missing authorization header for fetch-emails');
       }
 
@@ -90,10 +94,11 @@ serve(async (req) => {
       // Get current user
       const { data: { user }, error: userError } = await supabaseWithAuth.auth.getUser();
       if (userError || !user) {
+        console.error('User not authenticated:', userError);
         throw new Error('User not authenticated');
       }
 
-      // Get stored tokens using admin client (since we need to access the tokens)
+      // Get stored tokens using admin client
       const { data: integration, error } = await supabaseAdmin
         .from('user_integrations')
         .select('*')
