@@ -28,7 +28,10 @@ export const GoogleCalendarCallback = () => {
         try {
           // Exchange code for access token using our Supabase edge function
           const { data, error } = await supabase.functions.invoke('calendar-oauth', {
-            body: { code }
+            body: { 
+              code,
+              origin: window.location.origin
+            }
           });
 
           if (error) throw error;

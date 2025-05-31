@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { code, action } = await req.json()
+    const { code, action, origin } = await req.json()
 
     // Handle client ID request
     if (action === 'get_client_id') {
@@ -50,7 +50,12 @@ serve(async (req) => {
     // Get Google Client credentials from Supabase secrets
     const clientId = Deno.env.get('GOOGLE_CLIENT_ID')
     const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
-    const redirectUri = `${req.headers.get('origin')}/auth/callback`
+    
+    // Use the origin passed from the frontend or fall back to the request origin
+    const requestOrigin = origin || req.headers.get('origin') || req.headers.get('referer')?.split('/auth/callback')[0]
+    const redirectUri = `${requestOrigin}/auth/callback`
+
+    console.log('Using redirect URI:', redirectUri)
 
     if (!clientId || !clientSecret) {
       return new Response(
@@ -81,7 +86,7 @@ serve(async (req) => {
       const errorText = await tokenResponse.text()
       console.error('Token exchange failed:', errorText)
       return new Response(
-        JSON.stringify({ error: 'Failed to exchange authorization code' }),
+        JSON.stringify({ error: 'Failed to exchange authorization code', details: errorText }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
