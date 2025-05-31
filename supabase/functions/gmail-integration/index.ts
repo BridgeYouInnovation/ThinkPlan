@@ -29,10 +29,16 @@ serve(async (req) => {
     let action: string | null;
     let userId: string | null = null;
 
-    // Handle GET requests (OAuth callback)
+    // Handle GET requests (OAuth callback) - these come directly from Google, no auth header
     if (req.method === 'GET') {
       action = url.searchParams.get('action');
       console.log('GET request with action:', action);
+      
+      // OAuth callback doesn't have auth header - this is expected
+      if (action === 'callback') {
+        console.log('Processing OAuth callback from Google');
+        return await handleOAuthCallback(url);
+      }
     } else {
       // Handle POST requests (auth initiation and fetch emails)
       const body = await req.json();
@@ -63,207 +69,6 @@ serve(async (req) => {
 
       return new Response(JSON.stringify({ authUrl }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (action === 'callback') {
-      // Handle OAuth callback
-      const code = url.searchParams.get('code');
-      const state = url.searchParams.get('state'); // userId
-      const error = url.searchParams.get('error');
-      
-      console.log('OAuth callback - code:', !!code, 'state:', state, 'error:', error);
-      
-      if (error) {
-        console.error('OAuth error:', error);
-        return new Response(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Gmail Auth Error</title>
-            <script>
-              window.addEventListener('load', function() {
-                try {
-                  if (window.opener && !window.opener.closed) {
-                    window.opener.postMessage({
-                      type: 'GMAIL_AUTH_ERROR',
-                      error: '${error}'
-                    }, '*');
-                  }
-                } catch (e) {
-                  console.error('Error posting message:', e);
-                }
-                setTimeout(() => window.close(), 1000);
-              });
-            </script>
-          </head>
-          <body>
-            <p>Authentication failed. This window will close automatically.</p>
-          </body>
-          </html>
-        `, {
-          headers: { ...corsHeaders, 'Content-Type': 'text/html' }
-        });
-      }
-      
-      if (!code || !state) {
-        console.error('Missing code or state - code:', !!code, 'state:', state);
-        return new Response(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Gmail Auth Error</title>
-            <script>
-              window.addEventListener('load', function() {
-                try {
-                  if (window.opener && !window.opener.closed) {
-                    window.opener.postMessage({
-                      type: 'GMAIL_AUTH_ERROR',
-                      error: 'Missing authorization code or user ID'
-                    }, '*');
-                  }
-                } catch (e) {
-                  console.error('Error posting message:', e);
-                }
-                setTimeout(() => window.close(), 1000);
-              });
-            </script>
-          </head>
-          <body>
-            <p>Authentication failed. This window will close automatically.</p>
-          </body>
-          </html>
-        `, {
-          headers: { ...corsHeaders, 'Content-Type': 'text/html' }
-        });
-      }
-
-      // Exchange code for tokens
-      const redirectUri = `${SUPABASE_URL}/functions/v1/gmail-integration?action=callback`;
-      console.log('Token exchange redirect URI:', redirectUri);
-      
-      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: GOOGLE_CLIENT_ID,
-          client_secret: GOOGLE_CLIENT_SECRET!,
-          code,
-          grant_type: 'authorization_code',
-          redirect_uri: redirectUri,
-        }),
-      });
-
-      const tokens = await tokenResponse.json();
-      console.log('Token response status:', tokenResponse.status);
-      console.log('Token response:', tokens);
-      
-      if (!tokens.access_token) {
-        console.error('Failed to get access token:', tokens);
-        return new Response(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Gmail Auth Error</title>
-            <script>
-              window.addEventListener('load', function() {
-                try {
-                  if (window.opener && !window.opener.closed) {
-                    window.opener.postMessage({
-                      type: 'GMAIL_AUTH_ERROR',
-                      error: 'Failed to get access token'
-                    }, '*');
-                  }
-                } catch (e) {
-                  console.error('Error posting message:', e);
-                }
-                setTimeout(() => window.close(), 1000);
-              });
-            </script>
-          </head>
-          <body>
-            <p>Authentication failed. This window will close automatically.</p>
-          </body>
-          </html>
-        `, {
-          headers: { ...corsHeaders, 'Content-Type': 'text/html' }
-        });
-      }
-
-      // Store tokens in Supabase using admin client
-      console.log('Storing tokens for user:', state);
-      const { error: dbError } = await supabaseAdmin
-        .from('user_integrations')
-        .upsert({
-          user_id: state,
-          service: 'gmail',
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-          updated_at: new Date().toISOString()
-        });
-
-      if (dbError) {
-        console.error('Error storing tokens:', dbError);
-        return new Response(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Gmail Auth Error</title>
-            <script>
-              window.addEventListener('load', function() {
-                try {
-                  if (window.opener && !window.opener.closed) {
-                    window.opener.postMessage({
-                      type: 'GMAIL_AUTH_ERROR',
-                      error: 'Failed to store authentication tokens'
-                    }, '*');
-                  }
-                } catch (e) {
-                  console.error('Error posting message:', e);
-                }
-                setTimeout(() => window.close(), 1000);
-              });
-            </script>
-          </head>
-          <body>
-            <p>Authentication failed. This window will close automatically.</p>
-          </body>
-          </html>
-        `, {
-          headers: { ...corsHeaders, 'Content-Type': 'text/html' }
-        });
-      }
-
-      console.log('Successfully stored tokens for user:', state);
-
-      // Return HTML that closes the popup and sends success message to parent
-      return new Response(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Gmail Connected</title>
-          <script>
-            window.addEventListener('load', function() {
-              try {
-                if (window.opener && !window.opener.closed) {
-                  window.opener.postMessage({
-                    type: 'GMAIL_AUTH_SUCCESS'
-                  }, '*');
-                }
-              } catch (e) {
-                console.error('Error posting message:', e);
-              }
-              setTimeout(() => window.close(), 1000);
-            });
-          </script>
-        </head>
-        <body>
-          <p>Gmail connected successfully! This window will close automatically.</p>
-        </body>
-        </html>
-      `, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/html' }
       });
     }
 
@@ -376,3 +181,205 @@ serve(async (req) => {
     });
   }
 });
+
+// Separate function to handle OAuth callback
+async function handleOAuthCallback(url: URL) {
+  // Handle OAuth callback
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state'); // userId
+  const error = url.searchParams.get('error');
+  
+  console.log('OAuth callback - code:', !!code, 'state:', state, 'error:', error);
+  
+  if (error) {
+    console.error('OAuth error:', error);
+    return new Response(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Gmail Auth Error</title>
+        <script>
+          window.addEventListener('load', function() {
+            try {
+              if (window.opener && !window.opener.closed) {
+                window.opener.postMessage({
+                  type: 'GMAIL_AUTH_ERROR',
+                  error: '${error}'
+                }, '*');
+              }
+            } catch (e) {
+              console.error('Error posting message:', e);
+            }
+            setTimeout(() => window.close(), 1000);
+          });
+        </script>
+      </head>
+      <body>
+        <p>Authentication failed. This window will close automatically.</p>
+      </body>
+      </html>
+    `, {
+      headers: { ...corsHeaders, 'Content-Type': 'text/html' }
+    });
+  }
+  
+  if (!code || !state) {
+    console.error('Missing code or state - code:', !!code, 'state:', state);
+    return new Response(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Gmail Auth Error</title>
+        <script>
+          window.addEventListener('load', function() {
+            try {
+              if (window.opener && !window.opener.closed) {
+                window.opener.postMessage({
+                  type: 'GMAIL_AUTH_ERROR',
+                  error: 'Missing authorization code or user ID'
+                }, '*');
+              }
+            } catch (e) {
+              console.error('Error posting message:', e);
+            }
+            setTimeout(() => window.close(), 1000);
+          });
+        </script>
+      </head>
+      <body>
+        <p>Authentication failed. This window will close automatically.</p>
+      </body>
+      </html>
+    `, {
+      headers: { ...corsHeaders, 'Content-Type': 'text/html' }
+    });
+  }
+
+  // Exchange code for tokens
+  const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/gmail-integration?action=callback`;
+  console.log('Token exchange redirect URI:', redirectUri);
+  
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET!,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri,
+    }),
+  });
+
+  const tokens = await tokenResponse.json();
+  console.log('Token response status:', tokenResponse.status);
+  console.log('Token response:', tokens);
+  
+  if (!tokens.access_token) {
+    console.error('Failed to get access token:', tokens);
+    return new Response(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Gmail Auth Error</title>
+        <script>
+          window.addEventListener('load', function() {
+            try {
+              if (window.opener && !window.opener.closed) {
+                window.opener.postMessage({
+                  type: 'GMAIL_AUTH_ERROR',
+                  error: 'Failed to get access token'
+                }, '*');
+              }
+            } catch (e) {
+              console.error('Error posting message:', e);
+            }
+            setTimeout(() => window.close(), 1000);
+          });
+        </script>
+      </head>
+      <body>
+        <p>Authentication failed. This window will close automatically.</p>
+      </body>
+      </html>
+    `, {
+      headers: { ...corsHeaders, 'Content-Type': 'text/html' }
+    });
+  }
+
+  // Store tokens in Supabase using admin client
+  console.log('Storing tokens for user:', state);
+  const { error: dbError } = await supabaseAdmin
+    .from('user_integrations')
+    .upsert({
+      user_id: state,
+      service: 'gmail',
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+      updated_at: new Date().toISOString()
+    });
+
+  if (dbError) {
+    console.error('Error storing tokens:', dbError);
+    return new Response(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Gmail Auth Error</title>
+        <script>
+          window.addEventListener('load', function() {
+            try {
+              if (window.opener && !window.opener.closed) {
+                window.opener.postMessage({
+                  type: 'GMAIL_AUTH_ERROR',
+                  error: 'Failed to store authentication tokens'
+                }, '*');
+              }
+            } catch (e) {
+              console.error('Error posting message:', e);
+            }
+            setTimeout(() => window.close(), 1000);
+          });
+        </script>
+      </head>
+      <body>
+        <p>Authentication failed. This window will close automatically.</p>
+      </body>
+      </html>
+    `, {
+      headers: { ...corsHeaders, 'Content-Type': 'text/html' }
+    });
+  }
+
+  console.log('Successfully stored tokens for user:', state);
+
+  // Return HTML that closes the popup and sends success message to parent
+  return new Response(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Gmail Connected</title>
+      <script>
+        window.addEventListener('load', function() {
+          try {
+            if (window.opener && !window.opener.closed) {
+              window.opener.postMessage({
+                type: 'GMAIL_AUTH_SUCCESS'
+              }, '*');
+            }
+          } catch (e) {
+            console.error('Error posting message:', e);
+          }
+          setTimeout(() => window.close(), 1000);
+        });
+      </script>
+    </head>
+    <body>
+      <p>Gmail connected successfully! This window will close automatically.</p>
+    </body>
+    </html>
+  `, {
+    headers: { ...corsHeaders, 'Content-Type': 'text/html' }
+  });
+}
