@@ -6,11 +6,22 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar, CheckCircle, AlertCircle, Clock, ExternalLink } from "lucide-react";
 
+interface CalendarEvent {
+  id: string;
+  summary: string;
+  start: {
+    dateTime?: string;
+    date?: string;
+  };
+  htmlLink: string;
+}
+
 export const CalendarIntegration = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -22,7 +33,6 @@ export const CalendarIntegration = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Check if calendar is connected by looking for stored tokens
       const { data: integration } = await supabase
         .from('user_integrations')
         .select('*')
@@ -30,67 +40,106 @@ export const CalendarIntegration = () => {
         .eq('service', 'google_calendar')
         .single();
 
-      if (integration) {
+      if (integration && integration.access_token) {
         setIsConnected(true);
         setLastSync(integration.updated_at);
-        // In a real implementation, you would fetch recent events here
-        fetchRecentEvents();
+        setAccessToken(integration.access_token);
+        await fetchCalendarEvents(integration.access_token);
       }
     } catch (error) {
       console.error('Error checking calendar connection:', error);
     }
   };
 
-  const fetchRecentEvents = async () => {
-    // Mock calendar events for demonstration
-    const mockEvents = [
-      {
-        id: '1',
-        title: 'Team Meeting',
-        start: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
-        description: 'Weekly team sync'
-      },
-      {
-        id: '2',
-        title: 'Client Call',
-        start: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
-        description: 'Project discussion'
+  const fetchCalendarEvents = async (token: string) => {
+    try {
+      const now = new Date();
+      const timeMin = now.toISOString();
+      const timeMax = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(); // Next 7 days
+
+      const response = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=10`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Token expired, need to refresh or reconnect
+          await handleTokenExpired();
+          return;
+        }
+        throw new Error('Failed to fetch calendar events');
       }
-    ];
-    setEvents(mockEvents);
+
+      const data = await response.json();
+      setEvents(data.items || []);
+    } catch (error) {
+      console.error('Error fetching calendar events:', error);
+      toast({
+        variant: "destructive",
+        title: "Error fetching events",
+        description: "Failed to load calendar events. Please try reconnecting.",
+      });
+    }
+  };
+
+  const handleTokenExpired = async () => {
+    setIsConnected(false);
+    setAccessToken(null);
+    setEvents([]);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase
+        .from('user_integrations')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('service', 'google_calendar');
+    }
+
+    toast({
+      variant: "destructive",
+      title: "Calendar disconnected",
+      description: "Your calendar access has expired. Please reconnect.",
+    });
   };
 
   const connectCalendar = async () => {
     setIsConnecting(true);
     
     try {
-      // In a real implementation, this would initiate Google Calendar OAuth
-      // For now, we'll simulate the connection
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Google OAuth 2.0 flow
+      const clientId = "YOUR_GOOGLE_CLIENT_ID"; // You'll need to add this
+      const redirectUri = `${window.location.origin}/auth/callback`;
+      const scope = "https://www.googleapis.com/auth/calendar.readonly";
       
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${clientId}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `scope=${encodeURIComponent(scope)}&` +
+        `response_type=code&` +
+        `access_type=offline&` +
+        `prompt=consent`;
 
-      // Simulate storing the integration
-      const { error } = await supabase
-        .from('user_integrations')
-        .upsert({
-          user_id: user.id,
-          service: 'google_calendar',
-          access_token: 'mock_token',
-          refresh_token: 'mock_refresh_token',
-          expires_at: new Date(Date.now() + 3600000).toISOString()
-        });
-
-      if (error) throw error;
-
-      setIsConnected(true);
-      setLastSync(new Date().toISOString());
-      fetchRecentEvents();
+      // Open OAuth flow in a popup window
+      const popup = window.open(authUrl, 'google-auth', 'width=500,height=600');
       
+      // Listen for the OAuth callback
+      const checkClosed = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkClosed);
+          setIsConnecting(false);
+          checkConnectionStatus(); // Recheck connection status
+        }
+      }, 1000);
+
       toast({
-        title: "Calendar connected!",
-        description: "Your Google Calendar is now synchronized",
+        title: "Connecting to Google Calendar",
+        description: "Please authorize access in the popup window",
       });
     } catch (error) {
       console.error('Error connecting calendar:', error);
@@ -99,7 +148,6 @@ export const CalendarIntegration = () => {
         title: "Connection failed",
         description: "Failed to connect your calendar. Please try again.",
       });
-    } finally {
       setIsConnecting(false);
     }
   };
@@ -120,6 +168,7 @@ export const CalendarIntegration = () => {
       setIsConnected(false);
       setLastSync(null);
       setEvents([]);
+      setAccessToken(null);
       
       toast({
         title: "Calendar disconnected",
@@ -135,12 +184,40 @@ export const CalendarIntegration = () => {
     }
   };
 
-  const formatEventTime = (dateString: string) => {
-    const date = new Date(dateString);
+  const refreshEvents = async () => {
+    if (accessToken) {
+      await fetchCalendarEvents(accessToken);
+      
+      // Update last sync time
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('user_integrations')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('user_id', user.id)
+          .eq('service', 'google_calendar');
+        
+        setLastSync(new Date().toISOString());
+      }
+      
+      toast({
+        title: "Events refreshed",
+        description: "Calendar events have been updated",
+      });
+    }
+  };
+
+  const formatEventTime = (event: CalendarEvent) => {
+    const startTime = event.start.dateTime || event.start.date;
+    if (!startTime) return 'No time';
+    
+    const date = new Date(startTime);
     const now = new Date();
     const diffHours = Math.round((date.getTime() - now.getTime()) / (1000 * 60 * 60));
     
-    if (diffHours < 24) {
+    if (diffHours < 1) {
+      return 'Starting soon';
+    } else if (diffHours < 24) {
       return `in ${diffHours} hours`;
     } else {
       const diffDays = Math.round(diffHours / 24);
@@ -200,9 +277,19 @@ export const CalendarIntegration = () => {
             <div className="pt-4 border-t border-gray-100">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">Last sync:</span>
-                <span className="text-gray-700">
-                  {lastSync ? new Date(lastSync).toLocaleDateString() : 'Never'}
-                </span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-gray-700">
+                    {lastSync ? new Date(lastSync).toLocaleDateString() : 'Never'}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={refreshEvents}
+                    className="h-6 px-2 text-xs"
+                  >
+                    Refresh
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -214,15 +301,28 @@ export const CalendarIntegration = () => {
                     <div key={event.id} className="flex items-center space-x-3 p-3 bg-blue-50 rounded-2xl">
                       <Clock className="w-4 h-4 text-blue-600" />
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900 text-sm">{event.title}</p>
-                        <p className="text-xs text-gray-500">{formatEventTime(event.start)}</p>
+                        <p className="font-medium text-gray-900 text-sm">{event.summary}</p>
+                        <p className="text-xs text-gray-500">{formatEventTime(event)}</p>
                       </div>
-                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-6 w-6 p-0"
+                        onClick={() => window.open(event.htmlLink, '_blank')}
+                      >
                         <ExternalLink className="w-3 h-3" />
                       </Button>
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {events.length === 0 && (
+              <div className="pt-4 border-t border-gray-100">
+                <p className="text-sm text-gray-500 text-center py-4">
+                  No upcoming events in the next 7 days
+                </p>
               </div>
             )}
 
@@ -242,6 +342,11 @@ export const CalendarIntegration = () => {
             <p className="text-xs text-gray-500">
               Connect your Google Calendar to automatically sync events and get intelligent scheduling insights.
             </p>
+            <div className="mt-3 p-3 bg-yellow-50 rounded-2xl">
+              <p className="text-xs text-yellow-800">
+                <strong>Setup required:</strong> You'll need to configure your Google Client ID in the code and set up OAuth redirect URLs.
+              </p>
+            </div>
           </div>
         )}
       </CardContent>
