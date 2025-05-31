@@ -1,4 +1,3 @@
-
 export class VoiceRecorder {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
@@ -8,14 +7,12 @@ export class VoiceRecorder {
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          sampleRate: 48000, // Higher sample rate for better quality
+          sampleRate: 48000,
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          // Enhanced audio constraints for better quality
-          sampleSize: 16,
-          latency: 0.01
+          sampleSize: 16
         } 
       });
       
@@ -23,7 +20,7 @@ export class VoiceRecorder {
       const options: MediaRecorderOptions = {};
       if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
         options.mimeType = 'audio/webm;codecs=opus';
-        options.audioBitsPerSecond = 128000; // Higher bitrate for better quality
+        options.audioBitsPerSecond = 128000;
       } else if (MediaRecorder.isTypeSupported('audio/mp4;codecs=mp4a.40.2')) {
         options.mimeType = 'audio/mp4;codecs=mp4a.40.2';
         options.audioBitsPerSecond = 128000;
@@ -42,7 +39,7 @@ export class VoiceRecorder {
         }
       };
       
-      this.mediaRecorder.start(100); // Collect data every 100ms for smooth recording
+      this.mediaRecorder.start(100);
     } catch (error) {
       console.error('Error starting recording:', error);
       throw new Error('Could not access microphone');
