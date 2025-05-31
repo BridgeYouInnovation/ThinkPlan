@@ -14,6 +14,21 @@ const config: CapacitorConfig = {
       launchShowDuration: 2000,
       backgroundColor: "#7c3aed",
       showSpinner: false
+    },
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "alert"]
+    }
+  },
+  ios: {
+    scheme: 'Kind Word Society'
+  },
+  android: {
+    buildOptions: {
+      keystorePath: undefined,
+      keystorePassword: undefined,
+      keystoreAlias: undefined,
+      keystoreAliasPassword: undefined,
+      releaseType: 'APK'
     }
   }
 };
