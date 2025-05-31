@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -11,7 +12,10 @@ const GOOGLE_CLIENT_ID = "912536761364-ekndmkc5k77j7ecirqt7v0gdq9qjffj1.apps.goo
 const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
+// Use service role key for database operations that don't require user auth
+const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 const supabaseClient = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
 
 serve(async (req) => {
@@ -46,7 +50,6 @@ serve(async (req) => {
       const scope = 'https://www.googleapis.com/auth/gmail.readonly';
       const state = userId || '';
       
-      // Add additional OAuth parameters to help with the connection
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${GOOGLE_CLIENT_ID}&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
@@ -58,8 +61,6 @@ serve(async (req) => {
         `state=${state}`;
 
       console.log('Generated auth URL:', authUrl);
-      console.log('Client ID being used:', GOOGLE_CLIENT_ID);
-      console.log('Redirect URI being used:', redirectUri);
 
       return new Response(JSON.stringify({ authUrl }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -76,17 +77,18 @@ serve(async (req) => {
       
       if (error) {
         console.error('OAuth error:', error);
-        // Return HTML that closes the popup and sends error message to parent
         return new Response(`
           <!DOCTYPE html>
           <html>
           <head><title>Gmail Auth Error</title></head>
           <body>
             <script>
-              window.opener?.postMessage({
-                type: 'GMAIL_AUTH_ERROR',
-                error: '${error}'
-              }, window.location.origin);
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'GMAIL_AUTH_ERROR',
+                  error: '${error}'
+                }, window.location.origin);
+              }
               window.close();
             </script>
             <p>Authentication failed. This window will close automatically.</p>
@@ -105,10 +107,12 @@ serve(async (req) => {
           <head><title>Gmail Auth Error</title></head>
           <body>
             <script>
-              window.opener?.postMessage({
-                type: 'GMAIL_AUTH_ERROR',
-                error: 'Missing authorization code or user ID'
-              }, window.location.origin);
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'GMAIL_AUTH_ERROR',
+                  error: 'Missing authorization code or user ID'
+                }, window.location.origin);
+              }
               window.close();
             </script>
             <p>Authentication failed. This window will close automatically.</p>
@@ -119,7 +123,7 @@ serve(async (req) => {
         });
       }
 
-      // Exchange code for tokens using the same redirect URI
+      // Exchange code for tokens
       const redirectUri = `${SUPABASE_URL}/functions/v1/gmail-integration?action=callback`;
       console.log('Token exchange redirect URI:', redirectUri);
       
@@ -146,10 +150,12 @@ serve(async (req) => {
           <head><title>Gmail Auth Error</title></head>
           <body>
             <script>
-              window.opener?.postMessage({
-                type: 'GMAIL_AUTH_ERROR',
-                error: 'Failed to get access token'
-              }, window.location.origin);
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'GMAIL_AUTH_ERROR',
+                  error: 'Failed to get access token'
+                }, window.location.origin);
+              }
               window.close();
             </script>
             <p>Authentication failed. This window will close automatically.</p>
@@ -160,8 +166,8 @@ serve(async (req) => {
         });
       }
 
-      // Store tokens in Supabase
-      const { error: dbError } = await supabaseClient
+      // Store tokens in Supabase using admin client
+      const { error: dbError } = await supabaseAdmin
         .from('user_integrations')
         .upsert({
           user_id: state,
@@ -180,10 +186,12 @@ serve(async (req) => {
           <head><title>Gmail Auth Error</title></head>
           <body>
             <script>
-              window.opener?.postMessage({
-                type: 'GMAIL_AUTH_ERROR',
-                error: 'Failed to store authentication tokens'
-              }, window.location.origin);
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'GMAIL_AUTH_ERROR',
+                  error: 'Failed to store authentication tokens'
+                }, window.location.origin);
+              }
               window.close();
             </script>
             <p>Authentication failed. This window will close automatically.</p>
@@ -203,9 +211,11 @@ serve(async (req) => {
         <head><title>Gmail Connected</title></head>
         <body>
           <script>
-            window.opener?.postMessage({
-              type: 'GMAIL_AUTH_SUCCESS'
-            }, window.location.origin);
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'GMAIL_AUTH_SUCCESS'
+              }, window.location.origin);
+            }
             window.close();
           </script>
           <p>Gmail connected successfully! This window will close automatically.</p>
@@ -217,8 +227,8 @@ serve(async (req) => {
     }
 
     if (action === 'fetch-emails') {
-      // Get stored tokens
-      const { data: integration, error } = await supabaseClient
+      // Get stored tokens using admin client (since this requires user auth)
+      const { data: integration, error } = await supabaseAdmin
         .from('user_integrations')
         .select('*')
         .eq('user_id', userId)

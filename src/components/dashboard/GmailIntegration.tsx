@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,17 +25,6 @@ export const GmailIntegration = () => {
 
   useEffect(() => {
     checkGmailConnection();
-    // Check for OAuth callback
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('gmail') === 'connected') {
-      toast({
-        title: "Gmail Connected!",
-        description: "Your Gmail account has been successfully connected.",
-      });
-      setIsConnected(true);
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
 
     // Listen for messages from popup window
     const handleMessage = (event: MessageEvent) => {
@@ -90,6 +80,7 @@ export const GmailIntegration = () => {
           title: "Authentication required",
           description: "Please log in to connect Gmail",
         });
+        setIsConnecting(false);
         return;
       }
 
@@ -102,7 +93,7 @@ export const GmailIntegration = () => {
       }
 
       if (data?.authUrl) {
-        // Open in popup window instead of redirecting
+        // Open in popup window
         const popup = window.open(
           data.authUrl,
           'gmail-auth',
@@ -118,6 +109,15 @@ export const GmailIntegration = () => {
             setTimeout(checkGmailConnection, 1000);
           }
         }, 1000);
+
+        // Set a timeout to stop polling after 5 minutes
+        setTimeout(() => {
+          clearInterval(pollTimer);
+          if (!popup?.closed) {
+            popup?.close();
+          }
+          setIsConnecting(false);
+        }, 300000);
       }
     } catch (error) {
       console.error('Error connecting Gmail:', error);
