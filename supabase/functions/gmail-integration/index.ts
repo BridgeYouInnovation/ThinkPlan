@@ -21,7 +21,19 @@ serve(async (req) => {
   }
 
   try {
-    const { action, userId } = await req.json();
+    const url = new URL(req.url);
+    let action: string | null;
+    let userId: string | null = null;
+
+    // Handle GET requests (OAuth callback)
+    if (req.method === 'GET') {
+      action = url.searchParams.get('action');
+    } else {
+      // Handle POST requests (auth initiation and fetch emails)
+      const body = await req.json();
+      action = body.action;
+      userId = body.userId;
+    }
 
     if (action === 'auth') {
       // Generate OAuth URL
@@ -45,7 +57,6 @@ serve(async (req) => {
 
     if (action === 'callback') {
       // Handle OAuth callback
-      const url = new URL(req.url);
       const code = url.searchParams.get('code');
       const state = url.searchParams.get('state'); // userId
       
@@ -100,8 +111,6 @@ serve(async (req) => {
     }
 
     if (action === 'fetch-emails') {
-      const { userId } = await req.json();
-      
       // Get stored tokens
       const { data: integration, error } = await supabaseClient
         .from('user_integrations')
