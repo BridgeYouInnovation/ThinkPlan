@@ -19,4 +19,19 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Ensure proper output directory
+    outDir: 'dist',
+    // Generate source maps for production debugging
+    sourcemap: false,
+    // Optimize chunks
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          supabase: ['@supabase/supabase-js'],
+        },
+      },
+    },
+  },
 }));

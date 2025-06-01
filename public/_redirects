@@ -1,0 +1,5 @@
+# SPA redirect - send all routes to index.html
+/*    /index.html   200
+
+# Optional: Handle specific API routes if needed
+# /api/*  https://your-api-domain.com/api/:splat  200 
