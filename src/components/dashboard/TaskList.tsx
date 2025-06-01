@@ -14,6 +14,8 @@ import { format } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
 import { EditTaskModal } from "./EditTaskModal";
 import { NotificationSettings } from "./NotificationSettings";
+import { OverdueTaskModal } from "./OverdueTaskModal";
+import { useOverdueTasks } from "@/hooks/useOverdueTasks";
 
 type Task = Tables<'tasks'>;
 
@@ -26,6 +28,15 @@ export const TaskList = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [showFirstTimeHint, setShowFirstTimeHint] = useState(false);
   const { toast } = useToast();
+
+  // Use the overdue tasks hook
+  const {
+    currentOverdueTask,
+    showOverdueModal,
+    handleTaskUpdated: handleOverdueTaskUpdated,
+    handleModalClose,
+    refreshOverdueTasks
+  } = useOverdueTasks();
 
   const today = new Date();
   const weekDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
@@ -91,6 +102,7 @@ export const TaskList = () => {
       setSelectedDate(new Date());
       setShowAddTask(false);
       fetchTasks();
+      refreshOverdueTasks(); // Refresh overdue tasks when new task is added
       
       toast({
         title: "Task created!",
@@ -110,12 +122,21 @@ export const TaskList = () => {
     const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
     
     try {
+      const updateData: any = { 
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      };
+
+      // If marking as completed, set completed_at timestamp
+      if (newStatus === 'completed') {
+        updateData.completed_at = new Date().toISOString();
+      } else {
+        updateData.completed_at = null;
+      }
+
       const { error } = await supabase
         .from('tasks')
-        .update({ 
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', id);
 
       if (error) {
@@ -124,13 +145,15 @@ export const TaskList = () => {
 
       setTasks(tasks.map(task => 
         task.id === id 
-          ? { ...task, status: newStatus as any }
+          ? { ...task, status: newStatus as any, completed_at: updateData.completed_at }
           : task
       ));
 
+      refreshOverdueTasks(); // Refresh overdue tasks when status changes
+
       toast({
         title: "Task updated",
-        description: `Task marked as ${newStatus}`,
+        description: `Task marked as ${newStatus}${newStatus === 'completed' ? ' (will be auto-deleted in 24h)' : ''}`,
       });
     } catch (error) {
       console.error('Error updating task:', error);
@@ -154,6 +177,7 @@ export const TaskList = () => {
       }
 
       setTasks(tasks.filter(task => task.id !== id));
+      refreshOverdueTasks(); // Refresh overdue tasks when task is deleted
       toast({
         title: "Task deleted",
         description: "Task has been removed",
@@ -173,6 +197,12 @@ export const TaskList = () => {
       task.id === updatedTask.id ? updatedTask : task
     ));
     setEditingTask(null);
+    refreshOverdueTasks(); // Refresh overdue tasks when task is updated
+  };
+
+  const handleOverdueTaskUpdate = () => {
+    handleOverdueTaskUpdated();
+    fetchTasks(); // Refresh main task list
   };
 
   const getTaskCategory = (task: Task) => {
@@ -330,6 +360,14 @@ export const TaskList = () => {
 
   return (
     <div className="space-y-6 max-w-md mx-auto">
+      {/* Overdue Task Modal */}
+      <OverdueTaskModal
+        task={currentOverdueTask}
+        open={showOverdueModal}
+        onOpenChange={handleModalClose}
+        onTaskUpdated={handleOverdueTaskUpdate}
+      />
+
       {/* First Time Hint */}
       {showFirstTimeHint && (
         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4">
