@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,8 +16,7 @@ import {
   Mic,
   ArrowRight,
   Clock,
-  Calendar,
-  Zap
+  Calendar
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { DateConfirmationModal } from "./DateConfirmationModal";
@@ -392,38 +390,6 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
                 <span>AI will break this down into actionable tasks</span>
               </div>
             )}
-          </div>
-
-          <div className="bg-white/10 rounded-2xl p-4 border border-white/20">
-            <div className="flex items-center space-x-3 mb-3">
-              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                <Zap className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <h4 className="font-medium text-white text-sm">AI-Powered Breakdown</h4>
-                <p className="text-white/70 text-xs">Your ideas become organized tasks automatically</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="bg-white/20 rounded-lg p-2 text-center">
-                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-1">
-                  <span className="text-green-600 font-bold text-xs">1</span>
-                </div>
-                <span className="text-white/90">Capture</span>
-              </div>
-              <div className="bg-white/20 rounded-lg p-2 text-center">
-                <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-1">
-                  <Brain className="w-3 h-3 text-purple-600" />
-                </div>
-                <span className="text-white/90">AI Process</span>
-              </div>
-              <div className="bg-white/20 rounded-lg p-2 text-center">
-                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-1">
-                  <span className="text-blue-600 font-bold text-xs">✓</span>
-                </div>
-                <span className="text-white/90">Tasks</span>
-              </div>
-            </div>
           </div>
           
           <Button
