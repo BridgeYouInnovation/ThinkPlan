@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Mail, ExternalLink, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
+import { Mail, ExternalLink, CheckCircle, AlertCircle, RefreshCw, Crown } from "lucide-react";
+import { PremiumUpgradeDialog } from "./PremiumUpgradeDialog";
 
 interface Email {
   id: string;
@@ -20,6 +21,7 @@ export const GmailIntegration = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [emails, setEmails] = useState<Email[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPremiumDialog, setShowPremiumDialog] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -73,91 +75,7 @@ export const GmailIntegration = () => {
   };
 
   const connectGmail = async () => {
-    try {
-      setIsConnecting(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          variant: "destructive",
-          title: "Authentication required",
-          description: "Please log in to connect Gmail",
-        });
-        setIsConnecting(false);
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke('gmail-integration', {
-        body: { action: 'auth', userId: user.id }
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      if (data?.authUrl) {
-        console.log('Opening popup with URL:', data.authUrl);
-        // Open in popup window with specific dimensions and features
-        const popup = window.open(
-          data.authUrl,
-          'gmail-auth',
-          'width=500,height=600,scrollbars=yes,resizable=yes,status=yes,location=yes'
-        );
-
-        if (!popup) {
-          toast({
-            variant: "destructive",
-            title: "Popup blocked",
-            description: "Please allow popups for this site and try again",
-          });
-          setIsConnecting(false);
-          return;
-        }
-
-        // Poll for popup closure
-        const pollTimer = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(pollTimer);
-            console.log('Popup was closed');
-            // Don't automatically set connecting to false here
-            // Let the message handler deal with success/failure
-            setTimeout(() => {
-              if (isConnecting) {
-                setIsConnecting(false);
-                toast({
-                  variant: "destructive",
-                  title: "Connection cancelled",
-                  description: "Gmail connection was cancelled",
-                });
-              }
-            }, 2000);
-          }
-        }, 1000);
-
-        // Set a timeout to stop polling after 5 minutes
-        setTimeout(() => {
-          clearInterval(pollTimer);
-          if (!popup.closed) {
-            popup.close();
-          }
-          if (isConnecting) {
-            setIsConnecting(false);
-            toast({
-              variant: "destructive",
-              title: "Connection timeout",
-              description: "Gmail connection timed out",
-            });
-          }
-        }, 300000);
-      }
-    } catch (error) {
-      console.error('Error connecting Gmail:', error);
-      toast({
-        variant: "destructive",
-        title: "Connection failed",
-        description: "Failed to connect Gmail. Please try again.",
-      });
-      setIsConnecting(false);
-    }
+    setShowPremiumDialog(true);
   };
 
   const fetchEmails = async () => {
@@ -223,109 +141,58 @@ export const GmailIntegration = () => {
   };
 
   return (
-    <Card className="bg-white border border-gray-100 rounded-3xl">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-lg font-semibold flex items-center gap-2">
-          <Mail className="w-5 h-5 text-red-600" />
-          Gmail Integration
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Connection Status */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
+    <>
+      <Card className="bg-white border border-gray-100 rounded-3xl">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <Mail className="w-5 h-5 text-red-600" />
-            <div>
-              <p className="font-medium text-gray-900">Gmail Account</p>
-              <p className="text-sm text-gray-500">
-                {isConnected ? "Connected and ready" : "Connect to analyze emails"}
-              </p>
+            Gmail Integration
+            <Crown className="w-4 h-4 text-yellow-500" />
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Connection Status */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Mail className="w-5 h-5 text-red-600" />
+              <div>
+                <p className="font-medium text-gray-900">Gmail Account</p>
+                <p className="text-sm text-gray-500">
+                  Premium feature - Connect to analyze emails
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            {isConnected && <CheckCircle className="w-4 h-4 text-green-500" />}
-            <Button 
-              size="sm" 
-              variant={isConnected ? "outline" : "default"}
-              onClick={isConnected ? disconnectGmail : connectGmail}
-              disabled={isConnecting}
-              className="rounded-xl"
-            >
-              {isConnecting ? (
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 rounded-full border border-white/30 border-t-white animate-spin"></div>
-                  <span>Connecting...</span>
-                </div>
-              ) : isConnected ? 'Disconnect' : 'Connect'}
-            </Button>
-          </div>
-        </div>
-
-        {/* Email Actions */}
-        {isConnected && (
-          <div className="space-y-4">
-            <div className="flex space-x-3">
+            <div className="flex items-center space-x-2">
               <Button 
-                onClick={fetchEmails}
-                disabled={isLoading}
-                className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
+                size="sm" 
+                onClick={connectGmail}
+                className="rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
               >
-                {isLoading ? (
-                  <div className="flex items-center space-x-2">
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Loading...</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <RefreshCw className="w-4 h-4" />
-                    <span>Load Recent Emails</span>
-                  </div>
-                )}
+                <Crown className="w-3 h-3 mr-1" />
+                Upgrade to Connect
               </Button>
             </div>
-
-            {/* Recent Emails */}
-            {emails.length > 0 && (
-              <div className="space-y-3">
-                <h4 className="font-medium text-gray-900">Recent Emails</h4>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {emails.map((email) => (
-                    <div key={email.id} className="p-3 bg-gray-50 rounded-2xl">
-                      <div className="flex justify-between items-start mb-2">
-                        <p className="font-medium text-sm text-gray-900 truncate">
-                          {email.subject || 'No Subject'}
-                        </p>
-                        <Badge className="bg-blue-100 text-blue-700 text-xs">
-                          Unread
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-gray-600 mb-1">{email.from}</p>
-                      <p className="text-xs text-gray-500 line-clamp-2">
-                        {email.snippet}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
-        )}
 
-        {/* Instructions */}
-        {!isConnected && (
-          <div className="bg-blue-50 p-4 rounded-2xl">
+          {/* Instructions */}
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-2xl border border-purple-100">
             <div className="flex items-start space-x-3">
-              <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+              <Crown className="w-5 h-5 text-purple-600 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-blue-900">Gmail Integration</p>
-                <p className="text-xs text-blue-700 mt-1">
-                  Connect your Gmail to automatically analyze important emails and get AI-powered insights for better productivity.
+                <p className="text-sm font-medium text-purple-900">Premium Gmail Integration</p>
+                <p className="text-xs text-purple-700 mt-1">
+                  Upgrade to automatically analyze important emails, create tasks from messages, and get AI-powered insights for better productivity.
                 </p>
               </div>
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <PremiumUpgradeDialog 
+        open={showPremiumDialog}
+        onOpenChange={setShowPremiumDialog}
+      />
+    </>
   );
 };

@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, CheckCircle, AlertCircle, Clock, ExternalLink } from "lucide-react";
+import { Calendar, CheckCircle, AlertCircle, Clock, ExternalLink, Crown } from "lucide-react";
+import { PremiumUpgradeDialog } from "./PremiumUpgradeDialog";
 
 interface CalendarEvent {
   id: string;
@@ -22,6 +23,7 @@ export const CalendarIntegration = () => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string>("");
+  const [showPremiumDialog, setShowPremiumDialog] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -126,55 +128,7 @@ export const CalendarIntegration = () => {
   };
 
   const connectCalendar = async () => {
-    if (!clientId) {
-      toast({
-        variant: "destructive",
-        title: "Configuration error",
-        description: "Google Client ID not configured. Please check your settings.",
-      });
-      return;
-    }
-
-    setIsConnecting(true);
-    
-    try {
-      // Google OAuth 2.0 flow
-      const redirectUri = `${window.location.origin}/auth/callback`;
-      const scope = "https://www.googleapis.com/auth/calendar.readonly";
-      
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${clientId}&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `scope=${encodeURIComponent(scope)}&` +
-        `response_type=code&` +
-        `access_type=offline&` +
-        `prompt=consent`;
-
-      // Open OAuth flow in a popup window
-      const popup = window.open(authUrl, 'google-auth', 'width=500,height=600');
-      
-      // Listen for the OAuth callback
-      const checkClosed = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkClosed);
-          setIsConnecting(false);
-          checkConnectionStatus(); // Recheck connection status
-        }
-      }, 1000);
-
-      toast({
-        title: "Connecting to Google Calendar",
-        description: "Please authorize access in the popup window",
-      });
-    } catch (error) {
-      console.error('Error connecting calendar:', error);
-      toast({
-        variant: "destructive",
-        title: "Connection failed",
-        description: "Failed to connect your calendar. Please try again.",
-      });
-      setIsConnecting(false);
-    }
+    setShowPremiumDialog(true);
   };
 
   const disconnectCalendar = async () => {
@@ -251,130 +205,58 @@ export const CalendarIntegration = () => {
   };
 
   return (
-    <Card className="bg-white border border-gray-100 rounded-3xl">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-lg font-semibold flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-purple-600" />
-          Calendar Integration
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-              isConnected ? 'bg-green-100' : 'bg-gray-100'
-            }`}>
-              {isConnected ? (
-                <CheckCircle className="w-4 h-4 text-green-600" />
-              ) : (
+    <>
+      <Card className="bg-white border border-gray-100 rounded-3xl">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-purple-600" />
+            Calendar Integration
+            <Crown className="w-4 h-4 text-yellow-500" />
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100">
                 <Calendar className="w-4 h-4 text-gray-500" />
-              )}
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Google Calendar</p>
+                <p className="text-sm text-gray-500">
+                  Premium feature - Connect to sync events
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium text-gray-900">Google Calendar</p>
-              <p className="text-sm text-gray-500">
-                {isConnected ? 'Connected and syncing' : 'Connect to sync events'}
-              </p>
-            </div>
+            <Button 
+              size="sm" 
+              onClick={connectCalendar}
+              className="rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+            >
+              <Crown className="w-3 h-3 mr-1" />
+              Upgrade to Connect
+            </Button>
           </div>
-          <Button 
-            size="sm" 
-            variant={isConnected ? "outline" : "default"}
-            onClick={isConnected ? disconnectCalendar : connectCalendar}
-            disabled={isConnecting || !clientId}
-            className="rounded-xl"
-          >
-            {isConnecting ? (
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 rounded-full border border-gray-300 border-t-blue-600 animate-spin"></div>
-                <span>Connecting...</span>
-              </div>
-            ) : isConnected ? (
-              'Disconnect'
-            ) : (
-              'Connect'
-            )}
-          </Button>
-        </div>
 
-        {isConnected && (
-          <>
-            <div className="pt-4 border-t border-gray-100">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Last sync:</span>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-700">
-                    {lastSync ? new Date(lastSync).toLocaleDateString() : 'Never'}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={refreshEvents}
-                    className="h-6 px-2 text-xs"
-                  >
-                    Refresh
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {events.length > 0 && (
-              <div className="pt-4 border-t border-gray-100">
-                <h4 className="font-medium text-gray-900 mb-3">Upcoming Events</h4>
-                <div className="space-y-3">
-                  {events.map((event) => (
-                    <div key={event.id} className="flex items-center space-x-3 p-3 bg-blue-50 rounded-2xl">
-                      <Clock className="w-4 h-4 text-blue-600" />
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900 text-sm">{event.summary}</p>
-                        <p className="text-xs text-gray-500">{formatEventTime(event)}</p>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-6 w-6 p-0"
-                        onClick={() => window.open(event.htmlLink, '_blank')}
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {events.length === 0 && (
-              <div className="pt-4 border-t border-gray-100">
-                <p className="text-sm text-gray-500 text-center py-4">
-                  No upcoming events in the next 7 days
-                </p>
-              </div>
-            )}
-
-            <div className="pt-4 border-t border-gray-100">
-              <div className="flex items-start space-x-2">
-                <AlertCircle className="w-4 h-4 text-orange-500 mt-0.5" />
-                <p className="text-xs text-gray-500">
-                  Calendar integration helps identify scheduling conflicts and important meetings for better task prioritization.
-                </p>
-              </div>
-            </div>
-          </>
-        )}
-
-        {!isConnected && (
           <div className="pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-500">
-              Connect your Google Calendar to automatically sync events and get intelligent scheduling insights.
-            </p>
-            <div className="mt-3 p-3 bg-yellow-50 rounded-2xl">
-              <p className="text-xs text-yellow-800">
-                <strong>Setup required:</strong> You'll need to configure your Google Client ID in the code and set up OAuth redirect URLs.
-              </p>
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-2xl border border-purple-100">
+              <div className="flex items-start space-x-2">
+                <Crown className="w-4 h-4 text-purple-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-purple-900">Premium Calendar Sync</p>
+                  <p className="text-xs text-purple-700 mt-1">
+                    Upgrade to automatically sync events, identify scheduling conflicts, and get intelligent scheduling insights for better task prioritization.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <PremiumUpgradeDialog 
+        open={showPremiumDialog}
+        onOpenChange={setShowPremiumDialog}
+      />
+    </>
   );
 };
