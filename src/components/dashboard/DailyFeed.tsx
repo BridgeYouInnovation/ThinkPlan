@@ -7,16 +7,16 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   Brain, 
-  Calendar, 
   CheckCircle, 
-  Clock, 
-  Mail, 
   MessageSquare, 
   Plus, 
   Sparkles,
   User,
-  ExternalLink
+  Lightbulb,
+  CheckSquare,
+  Mic
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 interface DailyFeedProps {
   onLogout: () => void;
@@ -35,6 +35,8 @@ interface ImportantMessage {
 export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
   const [importantMessages, setImportantMessages] = useState<ImportantMessage[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+  const [quickIdea, setQuickIdea] = useState("");
+  const [isCapturing, setIsCapturing] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -64,6 +66,50 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
       console.error('Error fetching important messages:', error);
     } finally {
       setIsLoadingMessages(false);
+    }
+  };
+
+  const handleQuickCapture = async () => {
+    if (!quickIdea.trim()) {
+      onNavigateToTab('capture');
+      return;
+    }
+
+    setIsCapturing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase.functions.invoke('process-idea-with-ai', {
+        body: {
+          idea: quickIdea.trim(),
+          userId: user.id
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to process idea');
+      }
+
+      setQuickIdea("");
+      toast({
+        title: "✨ Idea captured!",
+        description: `Created ${data.tasks?.length || 0} tasks from your idea. Check the Tasks tab!`,
+      });
+      
+    } catch (error) {
+      console.error('Error processing quick idea:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to process your idea. Please try again.",
+      });
+    } finally {
+      setIsCapturing(false);
     }
   };
 
@@ -105,9 +151,9 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
     
     switch (source.toLowerCase()) {
       case 'gmail':
-        return <Mail className="w-4 h-4 text-red-600" />;
+        return <MessageSquare className="w-4 h-4 text-red-600" />;
       case 'calendar':
-        return <Calendar className="w-4 h-4 text-blue-600" />;
+        return <MessageSquare className="w-4 h-4 text-blue-600" />;
       default:
         return <MessageSquare className="w-4 h-4 text-gray-600" />;
     }
@@ -120,13 +166,66 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
         <div className="flex items-center justify-between mb-2">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Good morning</h1>
-            <p className="text-gray-500 text-sm">Here's what needs your attention</p>
+            <p className="text-gray-500 text-sm">Capture your ideas and stay organized</p>
           </div>
           <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
             <User className="w-5 h-5 text-white" />
           </div>
         </div>
       </div>
+
+      {/* Quick Idea Capture */}
+      <Card className="bg-gradient-to-br from-purple-600 via-purple-700 to-blue-600 text-white border-0 rounded-3xl shadow-xl">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <Lightbulb className="w-5 h-5 text-yellow-300" />
+            Quick Idea Capture
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <Textarea
+              placeholder="What's on your mind? Jot down any idea..."
+              value={quickIdea}
+              onChange={(e) => setQuickIdea(e.target.value)}
+              rows={3}
+              className="resize-none bg-white/10 border-white/20 text-white placeholder:text-white/70 rounded-2xl focus:ring-2 focus:ring-white/50"
+            />
+            <div className="flex space-x-3">
+              <Button
+                onClick={handleQuickCapture}
+                disabled={isCapturing}
+                className="flex-1 bg-white/20 hover:bg-white/30 text-white border-0 rounded-2xl h-12"
+              >
+                {isCapturing ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
+                    <span>Processing...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <Brain className="w-4 h-4" />
+                    <span>{quickIdea.trim() ? 'Transform to Tasks' : 'Open Capture'}</span>
+                  </div>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-12 w-12 rounded-2xl bg-white/10 hover:bg-white/20 text-white border-0"
+              >
+                <Mic className="w-5 h-5" />
+              </Button>
+            </div>
+          </div>
+          
+          <div className="text-center">
+            <p className="text-white/80 text-sm">
+              💡 AI will automatically break your ideas into actionable tasks
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Important Messages */}
       <Card className="bg-white border border-gray-100 rounded-3xl">
@@ -212,7 +311,7 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
             className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-2xl h-12"
           >
             <Plus className="w-5 h-5 mr-2" />
-            Capture New Idea
+            Full Idea Capture
           </Button>
           
           <div className="grid grid-cols-2 gap-3">
@@ -221,7 +320,7 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
               onClick={() => onNavigateToTab('tasks')}
               className="rounded-2xl h-12"
             >
-              <CheckCircle className="w-4 h-4 mr-2" />
+              <CheckSquare className="w-4 h-4 mr-2" />
               View Tasks
             </Button>
             <Button 
@@ -231,81 +330,6 @@ export const DailyFeed = ({ onLogout, onNavigateToTab }: DailyFeedProps) => {
             >
               <User className="w-4 h-4 mr-2" />
               Settings
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Connect Services */}
-      <Card className="bg-white border border-gray-100 rounded-3xl">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold">Connect Gmail and more</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Connect your accounts to get AI-powered insights and never miss important information.
-          </p>
-          
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl">
-              <div className="flex items-center space-x-3">
-                <Mail className="w-5 h-5 text-red-600" />
-                <div>
-                  <p className="font-medium text-gray-900 text-sm">Gmail</p>
-                  <p className="text-xs text-gray-500">Smart email insights</p>
-                </div>
-              </div>
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => onNavigateToTab('account')}
-                className="rounded-xl"
-              >
-                Connect
-              </Button>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl">
-              <div className="flex items-center space-x-3">
-                <Calendar className="w-5 h-5 text-blue-600" />
-                <div>
-                  <p className="font-medium text-gray-900 text-sm">Calendar</p>
-                  <p className="text-xs text-gray-500">Schedule optimization</p>
-                </div>
-              </div>
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => onNavigateToTab('account')}
-                className="rounded-xl"
-              >
-                Connect
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Today's Schedule Preview */}
-      <Card className="bg-white border border-gray-100 rounded-3xl">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <Clock className="w-5 h-5 text-blue-600" />
-            Today's Schedule
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-6">
-            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-sm text-gray-500">Connect your calendar to see today's events</p>
-            <Button 
-              size="sm" 
-              variant="outline" 
-              onClick={() => onNavigateToTab('account')}
-              className="mt-3 rounded-xl"
-            >
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Connect Calendar
             </Button>
           </div>
         </CardContent>
