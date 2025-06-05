@@ -25,10 +25,12 @@ serve(async (req) => {
     const twentyFourHoursAgo = new Date();
     twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
 
+    console.log('Cutoff time for deletion:', twentyFourHoursAgo.toISOString());
+
     // Find completed tasks that are older than 24 hours
     const { data: tasksToDelete, error: fetchError } = await supabaseClient
       .from('tasks')
-      .select('id, title, completed_at')
+      .select('id, title, completed_at, status')
       .eq('status', 'completed')
       .not('completed_at', 'is', null)
       .lt('completed_at', twentyFourHoursAgo.toISOString());
@@ -38,9 +40,14 @@ serve(async (req) => {
       throw fetchError;
     }
 
-    console.log(`Found ${tasksToDelete?.length || 0} tasks to delete`);
+    console.log(`Found ${tasksToDelete?.length || 0} completed tasks to delete`);
 
     if (tasksToDelete && tasksToDelete.length > 0) {
+      // Log each task that will be deleted
+      tasksToDelete.forEach(task => {
+        console.log(`Will delete task: "${task.title}" (completed at: ${task.completed_at})`);
+      });
+
       // Delete the tasks
       const taskIds = tasksToDelete.map(task => task.id);
       
@@ -55,18 +62,16 @@ serve(async (req) => {
       }
 
       console.log(`Successfully deleted ${tasksToDelete.length} completed tasks`);
-      
-      // Log each deleted task for audit purposes
-      tasksToDelete.forEach(task => {
-        console.log(`Deleted task: ${task.title} (completed at: ${task.completed_at})`);
-      });
+    } else {
+      console.log('No completed tasks found that are older than 24 hours');
     }
 
     return new Response(
       JSON.stringify({ 
         message: 'Cleanup completed successfully',
         deletedCount: tasksToDelete?.length || 0,
-        deletedTasks: tasksToDelete?.map(t => ({ id: t.id, title: t.title })) || []
+        deletedTasks: tasksToDelete?.map(t => ({ id: t.id, title: t.title, completed_at: t.completed_at })) || [],
+        cutoffTime: twentyFourHoursAgo.toISOString()
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -77,7 +82,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in cleanup function:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        timestamp: new Date().toISOString()
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 
