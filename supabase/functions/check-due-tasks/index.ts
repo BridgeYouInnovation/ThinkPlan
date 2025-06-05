@@ -18,9 +18,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get tasks that are due within the next 24 hours and haven't been notified
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
+    // Get tasks that are due now (within the current hour) and haven't been notified
+    const now = new Date()
+    const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000)
     
     const { data: dueTasks, error: tasksError } = await supabaseClient
       .from('tasks')
@@ -33,8 +33,8 @@ serve(async (req) => {
       `)
       .eq('status', 'pending')
       .eq('notification_sent', false)
-      .lte('due_date', tomorrow.toISOString())
-      .gte('due_date', new Date().toISOString())
+      .lte('due_date', oneHourFromNow.toISOString())
+      .gte('due_date', now.toISOString())
 
     if (tasksError) {
       console.error('Error fetching due tasks:', tasksError)
@@ -86,32 +86,62 @@ serve(async (req) => {
         try {
           const taskCount = userTasks.length
           const title = taskCount === 1 
-            ? `Task due soon: ${userTasks[0].title}`
-            : `${taskCount} tasks due soon`
+            ? `Task due now: ${userTasks[0].title}`
+            : `${taskCount} tasks due now`
           
           const body = taskCount === 1
-            ? `Due: ${new Date(userTasks[0].due_date!).toLocaleDateString()}`
-            : `Check your tasks - multiple items are due soon`
+            ? `Your task "${userTasks[0].title}" is due now!`
+            : `You have ${taskCount} tasks that are due now`
 
           const payload = JSON.stringify({
             title,
             body,
             data: {
               url: '/',
-              tasks: userTasks.map(t => t.id)
+              tasks: userTasks.map(t => t.id),
+              type: 'task_due'
             }
           })
 
-          // In a real implementation, you would use a proper web push library
-          // For now, we'll just log what would be sent
-          console.log(`Would send notification to ${subscription.endpoint}:`, payload)
-          
-          notificationResults.push({
-            userId,
-            endpoint: subscription.endpoint,
-            payload,
-            status: 'sent'
+          // Send push notification using Web Push API
+          const pushResponse = await fetch('https://fcm.googleapis.com/fcm/send', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `key=${Deno.env.get('FCM_SERVER_KEY')}`,
+            },
+            body: JSON.stringify({
+              to: subscription.endpoint,
+              notification: {
+                title,
+                body,
+                icon: '/favicon.ico',
+                badge: '/favicon.ico',
+                tag: 'task-due',
+                requireInteraction: true,
+                data: {
+                  url: '/',
+                  tasks: userTasks.map(t => t.id)
+                }
+              }
+            })
           })
+
+          if (pushResponse.ok) {
+            console.log(`Notification sent successfully to ${subscription.endpoint}`)
+            notificationResults.push({
+              userId,
+              endpoint: subscription.endpoint,
+              status: 'sent'
+            })
+          } else {
+            console.error(`Failed to send notification: ${await pushResponse.text()}`)
+            notificationResults.push({
+              userId,
+              endpoint: subscription.endpoint,
+              status: 'failed'
+            })
+          }
         } catch (error) {
           console.error('Error sending notification:', error)
           notificationResults.push({

@@ -68,7 +68,7 @@ export const OverdueTaskModal = ({ task, open, onOpenChange, onTaskUpdated }: Ov
   if (!task) return null;
 
   const overdueDays = task.due_date 
-    ? Math.ceil((new Date().getTime() - new Date(task.due_date).getTime()) / (1000 * 60 * 60 * 24))
+    ? Math.floor((new Date().getTime() - new Date(task.due_date).getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
   return (
@@ -80,7 +80,7 @@ export const OverdueTaskModal = ({ task, open, onOpenChange, onTaskUpdated }: Ov
           </div>
           <DialogTitle className="text-xl font-bold">Task Overdue</DialogTitle>
           <DialogDescription className="text-gray-600">
-            This task was due {overdueDays} day{overdueDays > 1 ? 's' : ''} ago
+            This task has been overdue for {overdueDays} day{overdueDays > 1 ? 's' : ''}
           </DialogDescription>
         </DialogHeader>
         
