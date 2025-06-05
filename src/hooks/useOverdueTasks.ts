@@ -12,17 +12,17 @@ export const useOverdueTasks = () => {
 
   const fetchOverdueTasks = async () => {
     try {
-      // Calculate tomorrow's date to check if task is overdue by at least one day
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
+      // Calculate yesterday's end to check if task is overdue by at least one full day
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(23, 59, 59, 999);
 
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
         .eq('status', 'pending')
         .not('due_date', 'is', null)
-        .lt('due_date', tomorrow.toISOString())
+        .lt('due_date', yesterday.toISOString())
         .order('due_date', { ascending: true });
 
       if (error) throw error;
