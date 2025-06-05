@@ -1,14 +1,9 @@
-
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.759c9db5ec8342a9bee07ff61ad201af',
-  appName: 'kind-word-society',
+  appId: 'com.thinkplan.app',
+  appName: 'ThinkPlan',
   webDir: 'dist',
-  server: {
-    url: 'https://759c9db5-ec83-42a9-bee0-7ff61ad201af.lovableproject.com?forceHideBadge=true',
-    cleartext: true
-  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
@@ -20,15 +15,15 @@ const config: CapacitorConfig = {
     }
   },
   ios: {
-    scheme: 'Kind Word Society'
+    scheme: 'ThinkPlan'
   },
   android: {
     buildOptions: {
-      keystorePath: undefined,
-      keystorePassword: undefined,
-      keystoreAlias: undefined,
-      keystoreAliasPassword: undefined,
-      releaseType: 'APK'
+      keystorePath: 'app/thinkplan-key.keystore',
+      keystorePassword: 'thinkplan123',
+      keystoreAlias: 'thinkplan',
+      keystoreAliasPassword: 'thinkplan123',
+      releaseType: 'AAB'
     }
   }
 };
